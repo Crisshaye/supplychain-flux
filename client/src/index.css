@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ----------------------------------------------------------------------------
+ * SupplyChain Flux base styles
+ * Goal: editorial-fintech feel. Lots of whitespace, tabular numerals for any
+ * number column, restrained motion, accessible focus rings.
+ * --------------------------------------------------------------------------*/
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-canvas text-text font-sans;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display text-text;
+    letter-spacing: -0.01em;
+  }
+
+  /* Accessible focus ring everywhere by default */
+  :focus-visible {
+    @apply outline-none ring-2 ring-offset-2 ring-offset-canvas;
+    --tw-ring-color: #1B263B;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Tabular numerals for any column of numbers (inventory, cost, period) */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+  }
+
+  /* Print: keep the Post-Mortem readable on paper. Hide chrome (header,
+     footer, buttons), expand to full width, force light backgrounds. */
+  @media print {
+    @page { size: Letter; margin: 0.6in; }
+    body { background: #FFFFFF !important; }
+    .print\:hidden { display: none !important; }
+    .surface, .surface-deep { box-shadow: none !important; border: 1px solid #CBD5E1 !important; }
+    .surface-deep { background: #FFFFFF !important; color: #0F172A !important; }
+    .surface-deep .text-text-onDeep, .surface-deep [class*="opacity-"] {
+      color: #0F172A !important; opacity: 1 !important;
+    }
+    main { max-width: none !important; padding: 0 !important; }
+    .recharts-wrapper { page-break-inside: avoid; }
+  }
+
+  /* Operations Briefing surfaces */
+  .surface {
+    @apply bg-surface rounded-card shadow-card;
+  }
+  .surface-inset {
+    @apply bg-surface-inset rounded-card shadow-inset;
+  }
+  .surface-deep {
+    @apply bg-navy text-text-onDeep rounded-card;
+  }
+
+  /* Subtle dotted divider used between dashboard cards */
+  .hairline {
+    background-image: linear-gradient(to right, rgba(15,23,42,0.12) 50%, transparent 0%);
+    background-position: top;
+    background-size: 6px 1px;
+    background-repeat: repeat-x;
+  }
+
+  /* Pill / badge shared style */
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}

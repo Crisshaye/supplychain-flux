@@ -1,0 +1,21 @@
+{
+  "name": "supplychain-flux",
+  "version": "0.1.0",
+  "description": "SupplyChain Flux - Operations Briefing. Multiplayer Beer Distribution Game replica for exec-ed.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build": "cd client && npm install && npm run build",
+    "test": "node --test tests/engine.test.js tests/validation.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "nanoid": "^5.0.9",
+    "socket.io": "^4.8.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
