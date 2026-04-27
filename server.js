@@ -27,7 +27,7 @@ import {
 } from './engine.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.PORT) || 8080;
+const PORT = Number(process.env.PORT) || 7860;
 const SESSION_IDLE_TTL_MS = Number(process.env.SESSION_IDLE_TTL_MS) || 30 * 60 * 1000;
 
 // 6-char uppercase alphanumeric, no easily-confused characters (no 0/O/1/I).

@@ -1,3 +1,13 @@
+---
+title: SupplyChain Flux
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+short_description: Multiplayer Beer Distribution Game replica for exec-ed.
+---
+
 # SupplyChain Flux
 
 **Operations Briefing.** A multiplayer Beer Distribution Game replica positioned as a strategic supply chain stress test for executive education.
