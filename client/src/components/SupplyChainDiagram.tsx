@@ -11,7 +11,6 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, User, AlertTriangle, ArrowLeft, ArrowRight, Factory as FactoryIcon, Lock } from 'lucide-react';
-import { cn } from '@/lib/cn';
 import { NODE_LABEL } from '@/lib/copy';
 import type { NodeView, NodeName, YouView, PeriodHistoryRow } from '@/lib/types';
 
