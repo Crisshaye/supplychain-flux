@@ -1,7 +1,4 @@
-// SupplyChain Flux - server (team mode)
-// Express + Socket.io. Thin wrapper around engine.js. Owns the live session
-// registry, the per-period 5-minute deadline, and the static asset serving
-// for the built React client.
+// SupplyChain Flux - server (team mode + robots + node switching)
 
 import express from 'express';
 import http from 'node:http';
@@ -21,6 +18,8 @@ import {
   allConnectedSuggested,
   advancePeriod,
   extendSession,
+  switchNode,
+  setRobot,
   serializeForNode,
   serializeForPostMortem,
   normalizeEmail,
@@ -30,13 +29,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 7860;
 const SESSION_IDLE_TTL_MS = Number(process.env.SESSION_IDLE_TTL_MS) || 30 * 60 * 1000;
 
-// 6-char uppercase alphanumeric, no easily-confused characters (no 0/O/1/I).
 const newCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6);
 
-const sessions = new Map(); // code -> SessionState
-const decisionTimers = new Map(); // code -> Timeout
-
-// ---------- Express ----------
+const sessions = new Map();
+const decisionTimers = new Map();
 
 const app = express();
 app.use(express.json());
@@ -55,7 +51,7 @@ app.get('/healthz', (_req, res) => {
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/socket.io')) return next();
   res.sendFile(path.join(clientDist, 'index.html'), (err) => {
-    if (err) res.status(404).send('SupplyChain Flux client not built. Run `npm run build`.');
+    if (err) res.status(404).send('SupplyChain Flux client not built. Run npm run build.');
   });
 });
 
@@ -64,10 +60,8 @@ const io = new IOServer(httpServer, {
   cors: { origin: '*' },
 });
 
-// ---------- Socket.io ----------
-
 io.on('connection', (socket) => {
-  socket.data.attachment = null; // { code, node, email }
+  socket.data.attachment = null;
 
   socket.on('convene', (payload, ack) => safeAck(ack, () => {
     const { hostEmail, hostName, T, demandProfile, demandVector, decisionWindowSec } = payload || {};
@@ -95,12 +89,7 @@ io.on('connection', (socket) => {
   socket.on('joinSession', (payload, ack) => safeAck(ack, () => {
     const { code, node, email, name } = payload || {};
     const state = mustGet(code);
-
-    // If this email is already on this node from another socket, this is a
-    // multi-device or reconnect scenario - just attach the new socket.
-    // If on a different node, joinSession itself throws.
     joinSession(state, { node, email, name, socketId: socket.id });
-
     socket.join(code);
     socket.data.attachment = { code, node, email: normalizeEmail(email) };
     broadcastNodeViews(state);
@@ -108,8 +97,6 @@ io.on('connection', (socket) => {
   }));
 
   socket.on('whereIsMyEmail', (payload, ack) => safeAck(ack, () => {
-    // Lets a returning user discover which node their email is on, without
-    // re-binding to a node yet. Used by the client's reconnect-from-cookie flow.
     const { code, email } = payload || {};
     const state = mustGet(code);
     const node = findNodeForEmail(state, email);
@@ -146,6 +133,26 @@ io.on('connection', (socket) => {
     return { ok: true };
   }));
 
+  socket.on('switchNode', (payload, ack) => safeAck(ack, () => {
+    const { code, toNode } = payload || {};
+    const att = socket.data.attachment;
+    if (!att || att.code !== code) throw new Error('socket not attached to this session');
+    const state = mustGet(code);
+    switchNode(state, { email: att.email, fromNode: att.node, toNode });
+    socket.data.attachment = { ...att, node: toNode };
+    broadcastNodeViews(state);
+    return serializeForNode(state, toNode);
+  }));
+
+  socket.on('setRobot', (payload, ack) => safeAck(ack, () => {
+    const { code, node, enabled } = payload || {};
+    const state = mustGet(code);
+    if (!socketIsHost(state, socket)) throw new Error('only the host can toggle the robot');
+    setRobot(state, { node, enabled });
+    broadcastNodeViews(state);
+    return { ok: true };
+  }));
+
   socket.on('extendSession', (payload, ack) => safeAck(ack, () => {
     const { code, additionalPeriods } = payload || {};
     const state = mustGet(code);
@@ -166,8 +173,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// ---------- Broadcast helpers ----------
-
 function broadcastNodeViews(state) {
   for (const n of NODES) {
     const view = serializeForNode(state, n);
@@ -179,8 +184,6 @@ function emitPostMortem(state) {
   const pm = serializeForPostMortem(state);
   io.to(state.code).emit('postMortem', pm);
 }
-
-// ---------- Decision timer ----------
 
 function armDecisionTimer(state) {
   clearDecisionTimer(state);
@@ -197,8 +200,6 @@ function clearDecisionTimer(state) {
 
 function onDecisionTimeout(state) {
   if (state.status !== 'running') return;
-  // Force-advance with whatever suggestions exist; teams with no suggestions
-  // fall back to last decision (engine handles this).
   advancePeriod(state);
   broadcastNodeViews(state);
   if (state.status === 'closed') {
@@ -207,8 +208,6 @@ function onDecisionTimeout(state) {
     armDecisionTimer(state);
   }
 }
-
-// ---------- Idle session cleanup ----------
 
 setInterval(() => {
   const now = Date.now();
@@ -219,8 +218,6 @@ setInterval(() => {
     }
   }
 }, 60_000).unref();
-
-// ---------- Utilities ----------
 
 function uniqueCode() {
   for (let i = 0; i < 8; i++) {
@@ -264,8 +261,6 @@ function safeAck(ack, fn) {
     if (typeof ack === 'function') ack({ ok: false, error: err.message });
   }
 }
-
-// ---------- Boot ----------
 
 httpServer.listen(PORT, () => {
   console.log(`SupplyChain Flux listening on :${PORT}`);

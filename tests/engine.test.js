@@ -22,6 +22,8 @@ import {
   extendSession,
   normalizeEmail,
   findNodeForEmail,
+  switchNode,
+  setRobot,
 } from '../engine.js';
 
 // ---------- Helpers ----------
@@ -296,15 +298,92 @@ test('findNodeForEmail returns the right node or null', () => {
 });
 
 test('resolveTeamDecision direct call', () => {
-  const node = { suggestions: { 'a': 5, 'b': 5, 'c': 7 }, lastExecutedDecision: null };
+  const node = { suggestions: { a: 5, b: 5, c: 7 }, lastExecutedDecision: null };
   const r = resolveTeamDecision(node, 1, 12345);
   assert.equal(r.executed, 5);
   assert.equal(r.fallback, false);
   assert.equal(r.tied, false);
 });
 
-test('variance and amplificationRatio basics', () => {
-  assert.equal(variance([4, 4, 4, 4]), 0);
-  const amp2 = amplificationRatio([2, 6, 2, 6], [3, 5, 3, 5]);
-  assert.equal(amp2, 4);
+test('switchNode moves a participant from one node to another in lobby', () => {
+  const s = createSession({ code: 'SW0001', hostEmail: 'h@x.com' });
+  joinSession(s, { node: 'retailer', email: 'a@x.com', socketId: 's1' });
+  switchNode(s, { email: 'a@x.com', toNode: 'distributor' });
+  assert.equal(findNodeForEmail(s, 'a@x.com'), 'distributor');
+  assert.equal(Object.keys(s.nodes.retailer.participants).length, 0);
+  assert.equal(Object.keys(s.nodes.distributor.participants).length, 1);
+});
+
+test('switchNode rejected after lobby', () => {
+  const s = createSession({ code: 'SW0002', hostEmail: 'h@x.com' });
+  for (const n of NODES) joinSession(s, { node: n, email: n + '@x.com', socketId: 's_' + n });
+  startSession(s);
+  assert.throws(
+    () => switchNode(s, { email: 'retailer@x.com', toNode: 'wholesaler' }),
+    /cannot switch nodes after lobby/,
+  );
+});
+
+test('setRobot toggles the flag and is lobby-only', () => {
+  const s = createSession({ code: 'RB0001', hostEmail: 'h@x.com' });
+  setRobot(s, { node: 'factory', enabled: true });
+  assert.equal(s.nodes.factory.robot, true);
+  setRobot(s, { node: 'factory', enabled: false });
+  assert.equal(s.nodes.factory.robot, false);
+
+  for (const n of NODES) joinSession(s, { node: n, email: n + '@x.com', socketId: 's_' + n });
+  startSession(s);
+  assert.throws(() => setRobot(s, { node: 'factory', enabled: true }), /cannot toggle robot/);
+});
+
+test('startSession allowed when empty nodes have a robot instead of humans', () => {
+  const s = createSession({ code: 'RB0002', hostEmail: 'h@x.com' });
+  joinSession(s, { node: 'retailer', email: 'a@x.com', socketId: 's1' });
+  joinSession(s, { node: 'wholesaler', email: 'b@x.com', socketId: 's2' });
+  assert.throws(() => startSession(s), /no participants and no robot/);
+  setRobot(s, { node: 'distributor', enabled: true });
+  setRobot(s, { node: 'factory', enabled: true });
+  startSession(s);
+  assert.equal(s.status, 'running');
+});
+
+test('robot fills empty node with naive pass-through (period 1 = 4)', () => {
+  const s = createSession({ code: 'RB0003', hostEmail: 'h@x.com' });
+  joinSession(s, { node: 'retailer', email: 'r@x.com', socketId: 's_r' });
+  for (const n of ['wholesaler', 'distributor', 'factory']) {
+    setRobot(s, { node: n, enabled: true });
+  }
+  startSession(s);
+  submitSuggestion(s, { node: 'retailer', email: 'r@x.com', quantity: 7 });
+  assert.equal(allConnectedSuggested(s), true);
+  advancePeriod(s);
+  const r0 = s.history[0];
+  assert.equal(r0.perNode.retailer.executedDecision, 7);
+  assert.equal(r0.perNode.wholesaler.executedDecision, 4);
+  assert.equal(r0.perNode.distributor.executedDecision, 4);
+  assert.equal(r0.perNode.factory.executedDecision, 4);
+});
+
+test('robot defers to humans when at least one human suggests', () => {
+  const s = createSession({ code: 'RB0004', hostEmail: 'h@x.com' });
+  for (const n of NODES) {
+    joinSession(s, { node: n, email: n + '@x.com', socketId: 's_' + n });
+  }
+  joinSession(s, { node: 'retailer', email: 'r2@x.com', socketId: 'sr2' });
+  setRobot(s, { node: 'retailer', enabled: true });
+  startSession(s);
+  submitSuggestion(s, { node: 'retailer', email: 'retailer@x.com', quantity: 9 });
+  submitSuggestion(s, { node: 'retailer', email: 'r2@x.com', quantity: 9 });
+  for (const n of ['wholesaler', 'distributor', 'factory']) {
+    submitSuggestion(s, { node: n, email: n + '@x.com', quantity: 4 });
+  }
+  advancePeriod(s);
+  const r0 = s.history[0].perNode.retailer;
+  assert.equal(r0.executedDecision, 9);
+  assert.ok(!('__robot__@scf' in r0.suggestions));
+});
+(s);
+  const r0 = s.history[0].perNode.retailer;
+  assert.equal(r0.executedDecision, 9);
+  assert.ok(!('__robot__@scf' in r0.suggestions));
 });

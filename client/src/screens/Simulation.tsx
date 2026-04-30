@@ -3,18 +3,16 @@
 // Sticky top bar shows session code, period t/T, your node, cumulative cost,
 // and a live countdown to the period deadline.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, Check, Repeat, Send, FileText, Plus, Clock, Users } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { Button, Card, Pill, Modal, Field, Input } from '@/components/ui';
 import { RulesModal } from '@/components/RulesModal';
+import { SupplyChainDiagram } from '@/components/SupplyChainDiagram';
 import { COPY, NODE_LABEL } from '@/lib/copy';
-import { fmtUSD, fmtInt, cn } from '@/lib/cn';
+import { fmtUSD, cn } from '@/lib/cn';
 import * as api from '@/lib/socket';
 import type { NodeView, NodeName, TeamMember } from '@/lib/types';
-
-const NODE_ORDER: NodeName[] = ['retailer', 'wholesaler', 'distributor', 'factory'];
 
 interface Props {
   isHost: boolean;
@@ -99,8 +97,9 @@ export function Simulation({ isHost, code, node, view, myEmail }: Props) {
         onExtend={() => setExtendOpen(true)}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <PositionPanel view={view} />
+      <SupplyChainDiagram view={view} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <DecisionPanel
           view={view}
           me={me}
@@ -115,8 +114,6 @@ export function Simulation({ isHost, code, node, view, myEmail }: Props) {
         />
         <HistoryPanel view={view} />
       </div>
-
-      <CrossTeamStrip view={view} />
 
       <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} config={view.config} />
 
@@ -227,50 +224,6 @@ function Countdown({ deadlineAt }: { deadlineAt: number | null }) {
   );
 }
 
-// ---------- Position ----------
-
-function PositionPanel({ view }: { view: NodeView }) {
-  const sparkData = useMemo(
-    () => view.history.slice(-12).map((h) => ({ t: h.t, onHand: h.onHandClose })),
-    [view.history],
-  );
-
-  return (
-    <Card title="Position">
-      <div className="grid grid-cols-2 gap-y-6">
-        <Stat label={COPY.sim.onHand} value={fmtInt(view.you.onHand)} />
-        <Stat
-          label={COPY.sim.backlog}
-          value={fmtInt(view.you.backlog)}
-          tone={view.you.backlog > 0 ? 'warn' : 'neutral'}
-        />
-        <Stat label={COPY.sim.onOrder} value={fmtInt(view.you.onOrderPipeline)} />
-        <Stat label="In-transit" value={fmtInt(view.you.onShipmentPipeline)} />
-      </div>
-
-      {sparkData.length > 1 && (
-        <div className="mt-6">
-          <div className="text-xs uppercase tracking-wider text-fg-muted mb-2">
-            On-hand, last {sparkData.length} periods
-          </div>
-          <div className="h-20">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sparkData}>
-                <YAxis hide domain={['dataMin - 2', 'dataMax + 2']} />
-                <Line type="monotone" dataKey="onHand" stroke="#1B263B" strokeWidth={2} dot={false} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function Stat({ label, value, tone = 'neutral' }: { label: string; value: string; tone?: 'neutral' | 'warn' }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wider text-fg-muted mb-1">{label}</div>
       <div className={cn('num font-display font-semibold text-2xl', tone === 'warn' ? 'text-amber' : 'text-fg')}>
         {value}
       </div>
@@ -433,43 +386,6 @@ function HistoryPanel({ view }: { view: NodeView }) {
   );
 }
 
-// ---------- Cross-team strip (anonymized presence + suggestion progress) ----------
-
-function CrossTeamStrip({ view }: { view: NodeView }) {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      {NODE_ORDER.map((n) => {
-        const p = view.presence[n];
-        const isYours = view.yourNode === n;
-        const ready = p.connectedCount > 0 && p.suggestedCount === p.connectedCount;
-        return (
-          <div
-            key={n}
-            className={cn(
-              'surface p-4 flex items-center justify-between',
-              isYours && 'ring-2 ring-navy',
-            )}
-          >
-            <div>
-              <div className="text-xs uppercase tracking-wider text-fg-muted">{NODE_LABEL[n]}</div>
-              <div className="num text-fg font-display font-semibold text-lg">
-                {p.suggestedCount} / {p.connectedCount}
-              </div>
-              <div className="text-[10px] text-fg-muted">suggestions in</div>
-            </div>
-            <div
-              className={cn(
-                'w-2.5 h-2.5 rounded-full',
-                ready ? 'bg-lime-700 animate-pulse-soft' : 'bg-line-strong',
-              )}
-              aria-label={ready ? 'team complete' : 'awaiting'}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 // ---------- Extend modal ----------
 
@@ -522,3 +438,4 @@ function ExtendModal({ code, currentT, onClose }: { code: string; currentT: numb
     </Modal>
   );
 }
+                                                     

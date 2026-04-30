@@ -1,8 +1,8 @@
-// SupplyChain Flux - simulation engine (team mode)
+// SupplyChain Flux - simulation engine (team mode + robots + node switching)
 // Pure module. No network, no I/O, no globals. Each node hosts a TEAM of one
-// or more participants identified by email. Each period, every team member
-// submits a suggestion. The executed decision per node is the mode of its
-// team's suggestions (random tie-break, deterministic per session).
+// or more participants identified by email, optionally augmented by a robot
+// player that uses naive pass-through. The executed decision per node is the
+// mode of suggestions, with random tie-break.
 //
 // See RULES.md for the spec this implements.
 
@@ -32,8 +32,10 @@ const DEFAULT_CONFIG = Object.freeze({
   b: 2.0,
   demandProfile: 'mit_step',
   demandVector: null,
-  decisionWindowSec: 300, // 5 minutes
+  decisionWindowSec: 300,
 });
+
+const ROBOT_EMAIL = '__robot__@scf';
 
 // ---------- Demand profiles ----------
 
@@ -78,7 +80,6 @@ function mulberry32(seed) {
   };
 }
 
-// Deterministic seed from session code so tie-breaks are reproducible.
 function seedFromCode(code) {
   let h = 2166136261;
   for (let i = 0; i < code.length; i++) {
@@ -125,7 +126,7 @@ export function createSession({ code, hostEmail, hostName, config = {} } = {}) {
     hostEmail: host,
     hostName: hostName || null,
     config: cfg,
-    status: 'lobby', // 'lobby' | 'running' | 'closed'
+    status: 'lobby',
     t: 0,
     nodes,
     history: [],
@@ -138,17 +139,16 @@ export function createSession({ code, hostEmail, hostName, config = {} } = {}) {
 
 function makeNodeState(cfg) {
   return {
-    // participants keyed by normalized email
-    participants: {}, // { [email]: { name, sockets: Set<string>, connected: bool } }
+    participants: {},
     onHand: cfg.I_0,
     backlog: 0,
     orderPipeline: [cfg.Pipe_0],
     shipmentPipeline: [cfg.Pipe_0, cfg.Pipe_0],
-    // Current period's per-participant suggestions: { [email]: number }
     suggestions: {},
-    lastExecutedDecision: null, // last period's executed quantity, used as fallback
+    lastExecutedDecision: null,
     autoDecidedPeriods: [],
     cumulativeCost: 0,
+    robot: false,
   };
 }
 
@@ -159,7 +159,6 @@ export function joinSession(state, { node, email, name, socketId }) {
   if (state.status === 'closed') throw new Error('session is closed');
   const e = normalizeEmail(email);
 
-  // Reject if this email is already on a different node.
   for (const n of NODES) {
     if (n !== node && state.nodes[n].participants[e]) {
       throw new Error(`email already joined as ${n}`);
@@ -202,8 +201,9 @@ export function findNodeForEmail(state, email) {
 export function startSession(state, nowMs = Date.now()) {
   if (state.status !== 'lobby') throw new Error(`cannot start; status=${state.status}`);
   for (const n of NODES) {
-    if (Object.keys(state.nodes[n].participants).length === 0) {
-      throw new Error(`cannot start; node ${n} has no participants`);
+    const team = state.nodes[n];
+    if (Object.keys(team.participants).length === 0 && !team.robot) {
+      throw new Error(`cannot start; node ${n} has no participants and no robot`);
     }
   }
   state.status = 'running';
@@ -212,12 +212,59 @@ export function startSession(state, nowMs = Date.now()) {
   return state;
 }
 
+// Switch a participant from one node to another. Lobby-only.
+export function switchNode(state, { email, fromNode, toNode }) {
+  if (state.status !== 'lobby') throw new Error('cannot switch nodes after lobby');
+  if (!NODES.includes(toNode)) throw new Error(`unknown node: ${toNode}`);
+  const e = normalizeEmail(email);
+  const current = fromNode ?? findNodeForEmail(state, e);
+  if (!current) throw new Error('participant not in any node');
+  if (current === toNode) return state;
+  const fromTeam = state.nodes[current].participants;
+  const toTeam = state.nodes[toNode].participants;
+  if (!fromTeam[e]) throw new Error(`email not on ${current}`);
+  if (toTeam[e]) throw new Error(`email already on ${toNode}`);
+  toTeam[e] = fromTeam[e];
+  delete fromTeam[e];
+  state.lastActivityAt = Date.now();
+  return state;
+}
+
+// Toggle a robot on a node. Lobby-only.
+export function setRobot(state, { node, enabled }) {
+  if (state.status !== 'lobby') throw new Error('cannot toggle robot after lobby');
+  if (!NODES.includes(node)) throw new Error(`unknown node: ${node}`);
+  state.nodes[node].robot = !!enabled;
+  state.lastActivityAt = Date.now();
+  return state;
+}
+
 function openDecisionWindow(state, nowMs) {
   state.periodOpenedAt = nowMs;
   state.periodDeadlineAt = nowMs + state.config.decisionWindowSec * 1000;
-  // Clear any stale suggestions
   for (const n of NODES) state.nodes[n].suggestions = {};
   state.lastActivityAt = nowMs;
+}
+
+// Inject the robot's suggestion if a robot node has zero human suggestions.
+// Naive pass-through: orders whatever was received last period (Pipe_0 at t=1).
+function applyRobotSuggestions(state) {
+  for (const n of NODES) {
+    const node = state.nodes[n];
+    if (!node.robot) continue;
+    const humanCount = Object.keys(node.suggestions).filter((e) => e !== ROBOT_EMAIL).length;
+    if (humanCount > 0) {
+      delete node.suggestions[ROBOT_EMAIL];
+      continue;
+    }
+    let q;
+    if (state.history.length === 0) {
+      q = state.config.Pipe_0;
+    } else {
+      q = state.history[state.history.length - 1].perNode[n].incomingOrder;
+    }
+    node.suggestions[ROBOT_EMAIL] = q;
+  }
 }
 
 // ---------- Suggestions & period advance ----------
@@ -234,41 +281,36 @@ export function submitSuggestion(state, { node, email, quantity }) {
   return state;
 }
 
-// Have all currently-connected participants on every node submitted at least
-// one suggestion? If so, the period can close early.
+// Have all currently-connected humans on every node submitted at least one
+// suggestion? Robot-only nodes (no humans + robot=true) count as ready.
 export function allConnectedSuggested(state) {
   for (const n of NODES) {
-    const team = state.nodes[n].participants;
+    const node = state.nodes[n];
+    const team = node.participants;
     const connectedEmails = Object.keys(team).filter((e) => team[e].connected);
     if (connectedEmails.length === 0) {
-      // A team with no one connected can't satisfy "all connected suggested" alone,
-      // but we need at least one suggestion across the node OR fall through to timeout.
-      // For early-advance, an entirely-disconnected team blocks - rely on timer.
-      return false;
+      if (!node.robot) return false;
+      continue;
     }
     for (const e of connectedEmails) {
-      if (!Number.isInteger(state.nodes[n].suggestions[e])) return false;
+      if (!Number.isInteger(node.suggestions[e])) return false;
     }
   }
   return true;
 }
 
-// Resolve a team's suggestions to a single executed decision.
-// Returns { executed, mode, tied, fallback } where fallback is true when the
-// team had no suggestions at all and we used lastExecutedDecision (or 0).
 export function resolveTeamDecision(node, period, sessionSeed) {
   const sugs = Object.values(node.suggestions);
   if (sugs.length === 0) {
     const fallback = node.lastExecutedDecision ?? 0;
     return { executed: fallback, mode: null, tied: false, fallback: true };
   }
-  // Count occurrences
   const counts = new Map();
   for (const v of sugs) counts.set(v, (counts.get(v) ?? 0) + 1);
   let max = 0;
   for (const c of counts.values()) if (c > max) max = c;
   const candidates = [...counts.entries()].filter(([, c]) => c === max).map(([v]) => v);
-  candidates.sort((a, b) => a - b); // canonical order before tie-break for determinism
+  candidates.sort((a, b) => a - b);
   let executed;
   let tied = candidates.length > 1;
   if (tied) {
@@ -288,14 +330,14 @@ export function advancePeriod(state, nowMs = Date.now()) {
   const customerDemand = cfg.demandVector[t - 1];
   const periodRecord = { t, demand: customerDemand, perNode: {} };
 
-  // Resolve each node's executed decision from its suggestions.
+  applyRobotSuggestions(state);
+
   const resolved = {};
   for (const n of NODES) {
     resolved[n] = resolveTeamDecision(state.nodes[n], t, state.seed);
     if (resolved[n].fallback) state.nodes[n].autoDecidedPeriods.push(t);
   }
 
-  // Step 1+2: receive shipment + receive order
   const incoming = {};
   for (const n of NODES) {
     const node = state.nodes[n];
@@ -307,7 +349,6 @@ export function advancePeriod(state, nowMs = Date.now()) {
     incoming[n] = { shipment: incomingShipment, order: incomingOrder };
   }
 
-  // Step 3: fulfill demand
   const fulfilled = {};
   for (const n of NODES) {
     const node = state.nodes[n];
@@ -323,7 +364,6 @@ export function advancePeriod(state, nowMs = Date.now()) {
     }
   }
 
-  // Step 4: place upstream orders (using executed decision per node)
   for (const n of NODES) {
     const node = state.nodes[n];
     const decision = resolved[n].executed;
@@ -338,7 +378,6 @@ export function advancePeriod(state, nowMs = Date.now()) {
     }
   }
 
-  // Step 5: period close - cost + per-node record (with full suggestion vector)
   for (const n of NODES) {
     const node = state.nodes[n];
     const periodCost = cfg.h * node.onHand + cfg.b * node.backlog;
@@ -350,7 +389,7 @@ export function advancePeriod(state, nowMs = Date.now()) {
       executedDecision: resolved[n].executed,
       tied: resolved[n].tied,
       autoDecided: resolved[n].fallback,
-      suggestions: { ...node.suggestions }, // snapshot
+      suggestions: { ...node.suggestions },
       onHandClose: node.onHand,
       backlogClose: node.backlog,
       periodCost,
@@ -396,10 +435,6 @@ export function extendSession(state, additionalPeriods, nowMs = Date.now()) {
 
 // ---------- Serialization for clients ----------
 
-// What a single node's team sees during play. Includes:
-// - own team's full state and live suggestions (transparent within the team)
-// - own cost only
-// - presence of other teams (occupied/connected counts) but no costs or suggestions
 export function serializeForNode(state, node) {
   if (!NODES.includes(node)) throw new Error(`unknown node: ${node}`);
   const own = state.nodes[node];
@@ -424,7 +459,7 @@ export function serializeForNode(state, node) {
     cumulativeCost: r.perNode[node].cumulativeCost,
     autoDecided: r.perNode[node].autoDecided,
     tied: r.perNode[node].tied,
-    suggestions: r.perNode[node].suggestions, // own team's history is fully visible
+    suggestions: r.perNode[node].suggestions,
   }));
 
   return {
@@ -454,10 +489,18 @@ export function serializeForNode(state, node) {
     team: teamRoster,
     presence: Object.fromEntries(
       NODES.map((n) => {
-        const ps = Object.values(state.nodes[n].participants);
+        const nd = state.nodes[n];
+        const ps = Object.values(nd.participants);
         const connected = ps.filter((p) => p.connected).length;
-        const suggested = ps.filter((p) => Number.isInteger(state.nodes[n].suggestions[p.email])).length;
-        return [n, { occupiedCount: ps.length, connectedCount: connected, suggestedCount: suggested }];
+        const suggested = ps.filter((p) => Number.isInteger(nd.suggestions[p.email])).length;
+        return [n, {
+          occupiedCount: ps.length,
+          connectedCount: connected,
+          suggestedCount: suggested,
+          robot: nd.robot,
+          onHand: nd.onHand,
+          backlog: nd.backlog,
+        }];
       }),
     ),
     periodOpenedAt: state.periodOpenedAt,
@@ -466,7 +509,6 @@ export function serializeForNode(state, node) {
   };
 }
 
-// Full reveal for the Analytical Post-Mortem.
 export function serializeForPostMortem(state) {
   const perNode = {};
   for (const n of NODES) {
@@ -481,6 +523,7 @@ export function serializeForPostMortem(state) {
       tiedPeriods: state.history.filter((r) => r.perNode[n].tied).map((r) => r.t),
       suggestionsByPeriod: state.history.map((r) => ({ t: r.t, suggestions: r.perNode[n].suggestions })),
       teamRoster: Object.values(state.nodes[n].participants).map((p) => ({ email: p.email, name: p.name })),
+      robot: state.nodes[n].robot,
       amplification: amplificationRatio(
         state.history.map((r) => r.perNode[n].executedDecision),
         state.config.demandVector.slice(0, state.history.length),

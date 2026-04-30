@@ -3,8 +3,8 @@
 // Each node can have a team of multiple participants.
 
 import { useState } from 'react';
-import { Copy, Check, Play, FileText } from 'lucide-react';
-import { Button, Card, Pill } from '@/components/ui';
+import { Copy, Check, Play, FileText, Bot, ArrowRightLeft } from 'lucide-react';
+import { Button, Card, Pill, Select, Modal, Field } from '@/components/ui';
 import { Brand } from '@/components/Brand';
 import { RulesModal } from '@/components/RulesModal';
 import { COPY, NODE_LABEL, NODE_BLURB, DEMAND_LABEL } from '@/lib/copy';
@@ -23,6 +23,7 @@ const NODE_ORDER: NodeName[] = ['retailer', 'wholesaler', 'distributor', 'factor
 export function Briefing({ isHost, code, view }: Props) {
   const [copied, setCopied] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [switchOpen, setSwitchOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,8 +46,19 @@ export function Briefing({ isHost, code, view }: Props) {
     }
   }
 
-  const nodesWithMembers = NODE_ORDER.filter((n) => view.presence[n].occupiedCount > 0).length;
-  const allFilled = nodesWithMembers === 4;
+  async function toggleRobot(node: NodeName, enabled: boolean) {
+    try {
+      await api.setRobot(code, node, enabled);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  // A node is "ready" when it has either humans or a robot.
+  const nodesReady = NODE_ORDER.filter(
+    (n) => view.presence[n].occupiedCount > 0 || view.presence[n].robot,
+  ).length;
+  const allReady = nodesReady === 4;
   const totalParticipants = NODE_ORDER.reduce((sum, n) => sum + view.presence[n].occupiedCount, 0);
   const decisionMin = Math.round(view.config.decisionWindowSec / 60);
 
@@ -91,7 +103,15 @@ export function Briefing({ isHost, code, view }: Props) {
           </div>
         </Card>
 
-        <Card title="Your team" subtitle={`${NODE_LABEL[view.yourNode]} - ${view.team.length} member${view.team.length === 1 ? '' : 's'}`}>
+        <Card
+          title="Your team"
+          subtitle={`${NODE_LABEL[view.yourNode]} - ${view.team.length} member${view.team.length === 1 ? '' : 's'}`}
+          trailing={
+            <Button variant="secondary" size="sm" onClick={() => setSwitchOpen(true)}>
+              <ArrowRightLeft size={12} /> Change
+            </Button>
+          }
+        >
           <ul className="space-y-2">
             {view.team.map((m) => (
               <li key={m.email} className="flex items-center justify-between gap-3 text-sm">
@@ -107,25 +127,39 @@ export function Briefing({ isHost, code, view }: Props) {
         </Card>
       </div>
 
-      <Card title="Node positions" subtitle={`${nodesWithMembers} of 4 nodes have at least one participant. ${totalParticipants} participants total.`}>
+      <Card
+        title="Node positions"
+        subtitle={`${nodesReady} of 4 nodes ready (humans or robot). ${totalParticipants} human participants total.`}
+      >
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {NODE_ORDER.map((n) => {
             const p = view.presence[n];
             const isYours = view.yourNode === n;
+            const empty = p.occupiedCount === 0;
             return (
               <li key={n} className="flex items-center justify-between gap-3 surface-inset p-4">
-                <div>
-                  <div className="text-sm font-medium text-fg flex items-center gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-fg flex items-center gap-2 flex-wrap">
                     {NODE_LABEL[n]}
                     {isYours && <Pill tone="success">You</Pill>}
+                    {p.robot && <Pill tone="info"><Bot size={10} /> Robot</Pill>}
                   </div>
-                  <div className="text-xs text-fg-muted">
+                  <div className="text-xs text-fg-muted mt-0.5">
                     {p.occupiedCount === 0
-                      ? 'No participants yet'
+                      ? p.robot ? 'Robot will play this node' : 'No participants yet'
                       : `${p.connectedCount} of ${p.occupiedCount} connected`}
                   </div>
+                  {isHost && empty && (
+                    <button
+                      type="button"
+                      onClick={() => toggleRobot(n, !p.robot)}
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-navy hover:underline"
+                    >
+                      <Bot size={11} /> {p.robot ? 'Remove robot' : 'Add robot'}
+                    </button>
+                  )}
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <div className="num text-2xl font-display font-semibold text-fg">{p.occupiedCount}</div>
                   <div className="text-[10px] uppercase tracking-wider text-fg-muted">members</div>
                 </div>
@@ -138,13 +172,13 @@ export function Briefing({ isHost, code, view }: Props) {
       <div className="surface p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="text-sm text-fg-muted">
           {isHost
-            ? allFilled
-              ? 'All four nodes have participants. You can open period 1 when ready.'
-              : `Waiting for participants on ${4 - nodesWithMembers} more node${4 - nodesWithMembers === 1 ? '' : 's'}.`
+            ? allReady
+              ? 'All four nodes are ready. You can open period 1 when ready.'
+              : `Waiting on ${4 - nodesReady} more node${4 - nodesReady === 1 ? '' : 's'} (assign a participant or add a robot).`
             : 'Waiting for the host to open period 1.'}
         </div>
         {isHost && (
-          <Button size="lg" disabled={!allFilled || starting} onClick={start}>
+          <Button size="lg" disabled={!allReady || starting} onClick={start}>
             <Play size={16} /> {starting ? 'Opening...' : COPY.lobby.start}
           </Button>
         )}
@@ -157,7 +191,66 @@ export function Briefing({ isHost, code, view }: Props) {
         onClose={() => setRulesOpen(false)}
         config={view.config}
       />
+
+      {switchOpen && (
+        <SwitchNodeModal
+          code={code}
+          currentNode={view.yourNode}
+          onClose={() => setSwitchOpen(false)}
+          onError={setError}
+        />
+      )}
     </div>
+  );
+}
+
+// ---------- Switch node modal ----------
+
+function SwitchNodeModal({
+  code, currentNode, onClose, onError,
+}: { code: string; currentNode: NodeName; onClose: () => void; onError: (m: string) => void }) {
+  const [target, setTarget] = useState<NodeName>(currentNode);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function go() {
+    if (target === currentNode) { onClose(); return; }
+    setSubmitting(true);
+    try {
+      await api.switchToNode(code, target);
+      onClose();
+    } catch (e) {
+      onError((e as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Change node position"
+      size="md"
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button disabled={submitting || target === currentNode} onClick={go}>
+            {submitting ? 'Switching...' : 'Switch'}
+          </Button>
+        </div>
+      }
+    >
+      <p className="text-sm text-fg-muted mb-4">
+        Choose a different node to operate. Only available before period 1 opens.
+      </p>
+      <Field label="New node" hint={NODE_BLURB[target]}>
+        <Select value={target} onChange={(e) => setTarget(e.target.value as NodeName)}>
+          {(NODE_ORDER as NodeName[]).map((n) => (
+            <option key={n} value={n}>{NODE_LABEL[n]}{n === currentNode ? ' (current)' : ''}</option>
+          ))}
+        </Select>
+      </Field>
+    </Modal>
   );
 }
 

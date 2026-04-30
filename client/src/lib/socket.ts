@@ -73,6 +73,14 @@ export function extendSession(
   return emitAck('extendSession', { code, additionalPeriods });
 }
 
+export function switchToNode(code: string, toNode: NodeName): Promise<NodeView> {
+  return emitAck('switchNode', { code, toNode });
+}
+
+export function setRobot(code: string, node: NodeName, enabled: boolean): Promise<{ ok: true }> {
+  return emitAck('setRobot', { code, node, enabled });
+}
+
 // ---- Subscriptions ----
 
 export function onStateForNode(cb: (msg: { node: NodeName; state: NodeView }) => void) {

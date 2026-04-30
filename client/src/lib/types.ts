@@ -16,6 +16,9 @@ export interface NodePresence {
   occupiedCount: number;
   connectedCount: number;
   suggestedCount: number;
+  robot: boolean;
+  onHand: number;
+  backlog: number;
 }
 
 export interface TeamMember {
