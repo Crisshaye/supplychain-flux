@@ -11,16 +11,8 @@ import { cn } from '@/lib/cn';
 import { NODE_LABEL } from '@/lib/copy';
 import type { NodeView, NodeName, PeriodHistoryRow } from '@/lib/types';
 
-const NODE_ORDER: NodeName[] = ['retailer', 'wholesaler', 'distributor', 'factory'];
-
 interface Props {
   view: NodeView;
-}
-
-interface FullHistoryFromAllNodes {
-  // Per-node, the latest period record we know about. Built from the broadcast
-  // since each socket only sees its own node's full history. For cross-node
-  // visualization we display each node's own snapshot.
 }
 
 export function SupplyChainDiagram({ view }: Props) {
