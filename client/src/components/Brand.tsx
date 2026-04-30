@@ -18,14 +18,14 @@ export function Brand({ variant = 'chrome', className }: Props) {
         <div
           className={cn(
             'font-display font-semibold tracking-tight',
-            isLobby ? 'text-2xl text-text' : 'text-base text-text',
+            isLobby ? 'text-2xl text-fg' : 'text-base text-fg',
           )}
         >
           {PRODUCT.name}
         </div>
         <div
           className={cn(
-            'font-sans text-text-muted',
+            'font-sans text-fg-muted',
             isLobby ? 'text-sm mt-1' : 'text-xs mt-0.5',
           )}
         >

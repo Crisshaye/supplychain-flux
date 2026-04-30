@@ -122,7 +122,7 @@ export function PostMortem({ pm, onRerun }: Props) {
         <div>
           <Brand variant="lobby" />
           <h1 className="font-display text-3xl font-semibold mt-4">{COPY.pm.title}</h1>
-          <p className="text-text-muted mt-2">
+          <p className="text-fg-muted mt-2">
             Session <span className="num font-medium">{pm.code}</span> -{' '}
             {DEMAND_LABEL[pm.config.demandProfile]}, {pm.config.T} periods.
           </p>
@@ -279,9 +279,9 @@ export function PostMortem({ pm, onRerun }: Props) {
 function HeadlineMetric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="surface p-5">
-      <div className="text-xs uppercase tracking-wider text-text-muted">{label}</div>
-      <div className="num font-display font-semibold text-3xl text-text mt-1">{value}</div>
-      {sub && <div className="text-xs text-text-muted mt-1">{sub}</div>}
+      <div className="text-xs uppercase tracking-wider text-fg-muted">{label}</div>
+      <div className="num font-display font-semibold text-3xl text-fg mt-1">{value}</div>
+      {sub && <div className="text-xs text-fg-muted mt-1">{sub}</div>}
     </div>
   );
 }
@@ -305,7 +305,7 @@ function NodeBreakdown({ pm, node }: { pm: PostMortem; node: NodeName }) {
     >
       {data.teamRoster.length > 0 && (
         <div className="mb-4">
-          <div className="text-xs uppercase tracking-wider text-text-muted mb-2">Team members</div>
+          <div className="text-xs uppercase tracking-wider text-fg-muted mb-2">Team members</div>
           <div className="flex flex-wrap gap-1.5">
             {data.teamRoster.map((m) => (
               <span key={m.email} className="text-xs bg-surface-inset rounded px-2 py-1">
@@ -316,7 +316,7 @@ function NodeBreakdown({ pm, node }: { pm: PostMortem; node: NodeName }) {
         </div>
       )}
       {(tiedCount > 0 || autoCount > 0) && (
-        <div className="text-xs text-text-muted space-y-1">
+        <div className="text-xs text-fg-muted space-y-1">
           {tiedCount > 0 && <div><span className="text-amber">*</span> {tiedCount} tie-broken period{tiedCount === 1 ? '' : 's'}: {data.tiedPeriods.join(', ')}</div>}
           {autoCount > 0 && <div><span className="text-amber">!</span> {autoCount} auto-decided period{autoCount === 1 ? '' : 's'}: {data.autoDecidedPeriods.join(', ')}</div>}
         </div>
@@ -333,8 +333,8 @@ function NodeBreakdown({ pm, node }: { pm: PostMortem; node: NodeName }) {
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="surface-inset p-2.5">
-      <div className="text-[10px] uppercase tracking-wider text-text-muted">{label}</div>
-      <div className={cn('num font-display font-semibold text-lg text-text')}>{value}</div>
+      <div className="text-[10px] uppercase tracking-wider text-fg-muted">{label}</div>
+      <div className={cn('num font-display font-semibold text-lg text-fg')}>{value}</div>
     </div>
   );
 }

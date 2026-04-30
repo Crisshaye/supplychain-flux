@@ -78,7 +78,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Brand variant="chrome" />
           {(state.kind === 'simulation' || state.kind === 'briefing') && (
-            <span className="text-xs text-text-muted">
+            <span className="text-xs text-fg-muted">
               {COPY.sim.parameters} - press <kbd className="px-1.5 py-0.5 rounded bg-surface-inset border border-line text-[10px] num">?</kbd>
             </span>
           )}
@@ -114,7 +114,7 @@ export default function App() {
       </main>
 
       <footer className="border-t border-line mt-16 py-6 print:hidden">
-        <div className="max-w-6xl mx-auto px-6 text-xs text-text-muted">
+        <div className="max-w-6xl mx-auto px-6 text-xs text-fg-muted">
           {PRODUCT.name} - {PRODUCT.subtitle}
         </div>
       </footer>

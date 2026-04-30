@@ -38,7 +38,10 @@ export default {
           DEFAULT: '#E2E8F0',
           strong: '#CBD5E1',
         },
-        text: {
+        // Foreground / text color tokens. Named 'fg' rather than 'text' because
+        // Tailwind already uses the `text-*` prefix for text-color utilities;
+        // a color group also called `text` causes a circular @apply error.
+        fg: {
           DEFAULT: '#0F172A',
           muted: '#475569',
           onDeep: '#F8F9FA',

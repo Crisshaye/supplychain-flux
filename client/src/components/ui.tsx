@@ -18,9 +18,9 @@ const buttonBase =
   'inline-flex items-center justify-center gap-2 font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
 const buttonVariants: Record<ButtonVariant, string> = {
-  primary: 'bg-navy text-text-onDeep hover:bg-navy-700 active:bg-navy-900',
-  secondary: 'bg-surface text-text border border-line-strong hover:bg-surface-inset',
-  ghost: 'bg-transparent text-text-muted hover:text-text hover:bg-surface-inset',
+  primary: 'bg-navy text-fg-onDeep hover:bg-navy-700 active:bg-navy-900',
+  secondary: 'bg-surface text-fg border border-line-strong hover:bg-surface-inset',
+  ghost: 'bg-transparent text-fg-muted hover:text-fg hover:bg-surface-inset',
   danger: 'bg-danger text-white hover:bg-red-700',
 };
 
@@ -55,16 +55,16 @@ interface FieldProps {
 export function Field({ label, hint, error, children }: FieldProps) {
   return (
     <label className="block">
-      <span className="block text-sm font-medium text-text mb-1.5">{label}</span>
+      <span className="block text-sm font-medium text-fg mb-1.5">{label}</span>
       {children}
-      {hint && !error && <span className="block text-xs text-text-muted mt-1.5">{hint}</span>}
+      {hint && !error && <span className="block text-xs text-fg-muted mt-1.5">{hint}</span>}
       {error && <span className="block text-xs text-danger mt-1.5">{error}</span>}
     </label>
   );
 }
 
 const inputBase =
-  'block w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-text placeholder:text-text-muted focus:border-navy';
+  'block w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-navy';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   function Input({ className, ...rest }, ref) {
@@ -99,7 +99,7 @@ export function Card({ title, subtitle, trailing, children, className }: CardPro
         <header className="flex items-start justify-between mb-4">
           <div>
             {title && <h2 className="font-display text-lg font-semibold leading-tight">{title}</h2>}
-            {subtitle && <p className="text-sm text-text-muted mt-1">{subtitle}</p>}
+            {subtitle && <p className="text-sm text-fg-muted mt-1">{subtitle}</p>}
           </div>
           {trailing}
         </header>
@@ -114,7 +114,7 @@ export function Card({ title, subtitle, trailing, children, className }: CardPro
 type PillTone = 'neutral' | 'success' | 'warn' | 'danger' | 'info';
 
 const pillTones: Record<PillTone, string> = {
-  neutral: 'bg-surface-inset text-text-muted',
+  neutral: 'bg-surface-inset text-fg-muted',
   success: 'bg-accent-progress text-accent-progressInk',
   warn: 'bg-amber/15 text-amber',
   danger: 'bg-danger/10 text-danger',
@@ -184,12 +184,12 @@ export function Metric({
     size === 'lg' ? 'text-metric-lg' : size === 'sm' ? 'text-metric-sm' : 'text-metric';
   return (
     <div>
-      <div className="text-xs uppercase tracking-wider text-text-muted font-medium mb-1">
+      <div className="text-xs uppercase tracking-wider text-fg-muted font-medium mb-1">
         {label}
       </div>
-      <div className={cn('num text-text', valueClass)}>
+      <div className={cn('num text-fg', valueClass)}>
         {value}
-        {unit && <span className="ml-1.5 text-sm text-text-muted font-normal align-middle">{unit}</span>}
+        {unit && <span className="ml-1.5 text-sm text-fg-muted font-normal align-middle">{unit}</span>}
       </div>
       {trend && (
         <div
@@ -197,7 +197,7 @@ export function Metric({
             'text-xs mt-1',
             trend === 'up' && 'text-accent-progressInk',
             trend === 'down' && 'text-danger',
-            trend === 'flat' && 'text-text-muted',
+            trend === 'flat' && 'text-fg-muted',
           )}
         >
           {trend === 'up' ? '+' : trend === 'down' ? '-' : ''}

@@ -147,7 +147,7 @@ function TopBar({
         <div className="flex items-center gap-6 flex-wrap">
           <button
             onClick={copy}
-            className="group inline-flex items-center gap-2 text-text-onDeep/80 hover:text-text-onDeep"
+            className="group inline-flex items-center gap-2 text-fg-onDeep/80 hover:text-fg-onDeep"
             aria-label="Copy session code"
           >
             <span className="text-[10px] uppercase tracking-widest opacity-70">Session</span>
@@ -155,7 +155,7 @@ function TopBar({
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
 
-          <div className="text-text-onDeep">
+          <div className="text-fg-onDeep">
             <span className="text-[10px] uppercase tracking-widest opacity-70">{COPY.sim.period}</span>
             <div className="num font-display font-semibold text-lg">
               <AnimatePresence mode="popLayout">
@@ -174,7 +174,7 @@ function TopBar({
             </div>
           </div>
 
-          <div className="text-text-onDeep">
+          <div className="text-fg-onDeep">
             <span className="text-[10px] uppercase tracking-widest opacity-70">{COPY.sim.yourNode}</span>
             <div className="font-display font-semibold text-lg">{NODE_LABEL[node]}</div>
           </div>
@@ -183,7 +183,7 @@ function TopBar({
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="text-right text-text-onDeep">
+          <div className="text-right text-fg-onDeep">
             <span className="text-[10px] uppercase tracking-widest opacity-70">
               {COPY.sim.cumulativeCost}
             </span>
@@ -213,7 +213,7 @@ function Countdown({ deadlineAt }: { deadlineAt: number | null }) {
   const remaining = Math.max(0, deadlineAt - now);
   const mm = Math.floor(remaining / 60000);
   const ss = Math.floor((remaining % 60000) / 1000);
-  const tone = remaining < 30_000 ? 'text-amber' : 'text-text-onDeep';
+  const tone = remaining < 30_000 ? 'text-amber' : 'text-fg-onDeep';
   return (
     <div className={cn('flex items-center gap-2', tone)}>
       <Clock size={14} className="opacity-80" />
@@ -250,7 +250,7 @@ function PositionPanel({ view }: { view: NodeView }) {
 
       {sparkData.length > 1 && (
         <div className="mt-6">
-          <div className="text-xs uppercase tracking-wider text-text-muted mb-2">
+          <div className="text-xs uppercase tracking-wider text-fg-muted mb-2">
             On-hand, last {sparkData.length} periods
           </div>
           <div className="h-20">
@@ -270,8 +270,8 @@ function PositionPanel({ view }: { view: NodeView }) {
 function Stat({ label, value, tone = 'neutral' }: { label: string; value: string; tone?: 'neutral' | 'warn' }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wider text-text-muted mb-1">{label}</div>
-      <div className={cn('num font-display font-semibold text-2xl', tone === 'warn' ? 'text-amber' : 'text-text')}>
+      <div className="text-xs uppercase tracking-wider text-fg-muted mb-1">{label}</div>
+      <div className={cn('num font-display font-semibold text-2xl', tone === 'warn' ? 'text-amber' : 'text-fg')}>
         {value}
       </div>
     </div>
@@ -347,10 +347,10 @@ function DecisionPanel({
 
       <div>
         <div className="flex items-center justify-between mb-3">
-          <div className="text-xs uppercase tracking-wider text-text-muted flex items-center gap-2">
+          <div className="text-xs uppercase tracking-wider text-fg-muted flex items-center gap-2">
             <Users size={12} /> {COPY.sim.teamPanel}
           </div>
-          <div className="text-xs text-text-muted num">
+          <div className="text-xs text-fg-muted num">
             {teamSuggested.length} of {teamConnected.length} suggested
           </div>
         </div>
@@ -362,17 +362,17 @@ function DecisionPanel({
                   'w-2 h-2 rounded-full',
                   m.connected ? 'bg-lime-700' : 'bg-amber',
                 )} />
-                <span className="text-text truncate">{m.name ?? m.email}</span>
+                <span className="text-fg truncate">{m.name ?? m.email}</span>
               </div>
               {m.suggested ? (
-                <span className="num font-medium text-text">{m.suggestion}</span>
+                <span className="num font-medium text-fg">{m.suggestion}</span>
               ) : (
-                <span className="text-xs text-text-muted">pending</span>
+                <span className="text-xs text-fg-muted">pending</span>
               )}
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-[11px] text-text-muted leading-snug">
+        <p className="mt-3 text-[11px] text-fg-muted leading-snug">
           The executed decision is the mode of the team's suggestions; ties are broken at random.
         </p>
       </div>
@@ -387,11 +387,11 @@ function HistoryPanel({ view }: { view: NodeView }) {
   return (
     <Card title={COPY.sim.history} subtitle={`${view.history.length} of ${view.T} periods`}>
       {rows.length === 0 ? (
-        <p className="text-sm text-text-muted">No periods completed yet.</p>
+        <p className="text-sm text-fg-muted">No periods completed yet.</p>
       ) : (
         <div className="overflow-x-auto -mx-2">
           <table className="w-full text-xs num">
-            <thead className="text-text-muted">
+            <thead className="text-fg-muted">
               <tr className="border-b border-line">
                 <th className="text-left font-medium px-2 py-2">t</th>
                 <th className="text-right font-medium px-2 py-2">In</th>
@@ -405,7 +405,7 @@ function HistoryPanel({ view }: { view: NodeView }) {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.t} className="border-b border-line last:border-0">
-                  <td className="px-2 py-1.5 text-text-muted">{r.t}</td>
+                  <td className="px-2 py-1.5 text-fg-muted">{r.t}</td>
                   <td className="px-2 py-1.5 text-right">{r.incomingOrder}</td>
                   <td className="px-2 py-1.5 text-right font-medium">
                     {r.executedDecision}
@@ -425,7 +425,7 @@ function HistoryPanel({ view }: { view: NodeView }) {
         </div>
       )}
       {view.history.some((r) => r.tied || r.autoDecided) && (
-        <p className="mt-3 text-[11px] text-text-muted">
+        <p className="mt-3 text-[11px] text-fg-muted">
           <span className="text-amber">*</span> Tie-broken at random. <span className="text-amber">!</span> Auto-decided (no team suggestions).
         </p>
       )}
@@ -451,11 +451,11 @@ function CrossTeamStrip({ view }: { view: NodeView }) {
             )}
           >
             <div>
-              <div className="text-xs uppercase tracking-wider text-text-muted">{NODE_LABEL[n]}</div>
-              <div className="num text-text font-display font-semibold text-lg">
+              <div className="text-xs uppercase tracking-wider text-fg-muted">{NODE_LABEL[n]}</div>
+              <div className="num text-fg font-display font-semibold text-lg">
                 {p.suggestedCount} / {p.connectedCount}
               </div>
-              <div className="text-[10px] text-text-muted">suggestions in</div>
+              <div className="text-[10px] text-fg-muted">suggestions in</div>
             </div>
             <div
               className={cn(
@@ -506,7 +506,7 @@ function ExtendModal({ code, currentT, onClose }: { code: string; currentT: numb
         </div>
       }
     >
-      <p className="text-sm text-text-muted mb-4">
+      <p className="text-sm text-fg-muted mb-4">
         Increase the total number of periods. The demand vector is extended consistently with the original profile.
       </p>
       <Field label="Additional periods" hint={`New total will be ${currentT + add} (max 200).`}>

@@ -61,11 +61,11 @@ export function Briefing({ isHost, code, view }: Props) {
             className="group inline-flex items-center gap-3 px-4 py-2.5 rounded-md bg-surface-inset hover:bg-line transition-colors"
             aria-label="Copy session code"
           >
-            <span className="text-xs uppercase tracking-wider text-text-muted">Session</span>
-            <span className="num font-display font-semibold text-2xl tracking-widest text-text">
+            <span className="text-xs uppercase tracking-wider text-fg-muted">Session</span>
+            <span className="num font-display font-semibold text-2xl tracking-widest text-fg">
               {code}
             </span>
-            <span className="text-text-muted group-hover:text-text">
+            <span className="text-fg-muted group-hover:text-fg">
               {copied ? <Check size={16} /> : <Copy size={16} />}
             </span>
           </button>
@@ -96,14 +96,14 @@ export function Briefing({ isHost, code, view }: Props) {
             {view.team.map((m) => (
               <li key={m.email} className="flex items-center justify-between gap-3 text-sm">
                 <div className="min-w-0">
-                  <div className="text-text font-medium truncate">{m.name ?? m.email}</div>
-                  {m.name && <div className="text-xs text-text-muted truncate">{m.email}</div>}
+                  <div className="text-fg font-medium truncate">{m.name ?? m.email}</div>
+                  {m.name && <div className="text-xs text-fg-muted truncate">{m.email}</div>}
                 </div>
                 <PresenceDot connected={m.connected} occupied />
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-xs text-text-muted leading-relaxed">{NODE_BLURB[view.yourNode]}</p>
+          <p className="mt-4 text-xs text-fg-muted leading-relaxed">{NODE_BLURB[view.yourNode]}</p>
         </Card>
       </div>
 
@@ -115,19 +115,19 @@ export function Briefing({ isHost, code, view }: Props) {
             return (
               <li key={n} className="flex items-center justify-between gap-3 surface-inset p-4">
                 <div>
-                  <div className="text-sm font-medium text-text flex items-center gap-2">
+                  <div className="text-sm font-medium text-fg flex items-center gap-2">
                     {NODE_LABEL[n]}
                     {isYours && <Pill tone="success">You</Pill>}
                   </div>
-                  <div className="text-xs text-text-muted">
+                  <div className="text-xs text-fg-muted">
                     {p.occupiedCount === 0
                       ? 'No participants yet'
                       : `${p.connectedCount} of ${p.occupiedCount} connected`}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="num text-2xl font-display font-semibold text-text">{p.occupiedCount}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-text-muted">members</div>
+                  <div className="num text-2xl font-display font-semibold text-fg">{p.occupiedCount}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-fg-muted">members</div>
                 </div>
               </li>
             );
@@ -136,7 +136,7 @@ export function Briefing({ isHost, code, view }: Props) {
       </Card>
 
       <div className="surface p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="text-sm text-text-muted">
+        <div className="text-sm text-fg-muted">
           {isHost
             ? allFilled
               ? 'All four nodes have participants. You can open period 1 when ready.'
@@ -164,8 +164,8 @@ export function Briefing({ isHost, code, view }: Props) {
 function ConfigItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs uppercase tracking-wider text-text-muted">{label}</dt>
-      <dd className="num text-text font-medium mt-0.5">{value}</dd>
+      <dt className="text-xs uppercase tracking-wider text-fg-muted">{label}</dt>
+      <dd className="num text-fg font-medium mt-0.5">{value}</dd>
     </div>
   );
 }

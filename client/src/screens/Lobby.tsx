@@ -47,12 +47,12 @@ function Hero({ onConvene, onJoin, onRules }: { onConvene: () => void; onJoin: (
     <section className="surface p-10">
       <Brand variant="lobby" className="mb-8" />
       <div className="max-w-2xl">
-        <h1 className="font-display text-4xl font-semibold tracking-tight leading-tight text-text">
+        <h1 className="font-display text-4xl font-semibold tracking-tight leading-tight text-fg">
           A four-stage supply chain.
           <br />
-          <span className="text-text-muted">Quantify the cost of imperfect information.</span>
+          <span className="text-fg-muted">Quantify the cost of imperfect information.</span>
         </h1>
-        <p className="mt-5 text-text-muted leading-relaxed">
+        <p className="mt-5 text-fg-muted leading-relaxed">
           {PRODUCT.name} runs the canonical Beer Distribution Game as a
           90-minute stress test. Each node is operated by a team of one or
           more participants who suggest order quantities each period; the
@@ -122,7 +122,7 @@ function ConveneCard({ onBack, dispatch }: { onBack: () => void; dispatch: (a: A
     <Card
       title={
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="text-text-muted hover:text-text" aria-label="Back">
+          <button onClick={onBack} className="text-fg-muted hover:text-fg" aria-label="Back">
             <ArrowLeft size={18} />
           </button>
           {COPY.lobby.convene}
@@ -242,7 +242,7 @@ function JoinCard({ initialCode, onBack, dispatch }: { initialCode: string; onBa
     <Card
       title={
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="text-text-muted hover:text-text" aria-label="Back">
+          <button onClick={onBack} className="text-fg-muted hover:text-fg" aria-label="Back">
             <ArrowLeft size={18} />
           </button>
           {COPY.lobby.join}
@@ -322,7 +322,7 @@ function ContextStrip() {
       {items.map((it) => (
         <div key={it.label} className="surface p-5">
           <Pill tone="info" className="mb-3">{it.label}</Pill>
-          <p className="text-sm text-text-muted leading-relaxed">{it.body}</p>
+          <p className="text-sm text-fg-muted leading-relaxed">{it.body}</p>
         </div>
       ))}
     </div>

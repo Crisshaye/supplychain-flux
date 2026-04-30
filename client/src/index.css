@@ -17,12 +17,12 @@
   }
 
   body {
-    @apply bg-canvas text-text font-sans;
+    @apply bg-canvas text-fg font-sans;
     font-feature-settings: 'cv11', 'ss01', 'ss03';
   }
 
   h1, h2, h3, h4 {
-    @apply font-display text-text;
+    @apply font-display text-fg;
     letter-spacing: -0.01em;
   }
 
@@ -58,7 +58,7 @@
     .print\:hidden { display: none !important; }
     .surface, .surface-deep { box-shadow: none !important; border: 1px solid #CBD5E1 !important; }
     .surface-deep { background: #FFFFFF !important; color: #0F172A !important; }
-    .surface-deep .text-text-onDeep, .surface-deep [class*="opacity-"] {
+    .surface-deep .text-fg-onDeep, .surface-deep [class*="opacity-"] {
       color: #0F172A !important; opacity: 1 !important;
     }
     main { max-width: none !important; padding: 0 !important; }
@@ -73,7 +73,7 @@
     @apply bg-surface-inset rounded-card shadow-inset;
   }
   .surface-deep {
-    @apply bg-navy text-text-onDeep rounded-card;
+    @apply bg-navy text-fg-onDeep rounded-card;
   }
 
   /* Subtle dotted divider used between dashboard cards */
