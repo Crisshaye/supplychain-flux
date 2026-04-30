@@ -43,29 +43,10 @@
   }
 }
 
-@layer utilities {
-  /* Tabular numerals for any column of numbers (inventory, cost, period) */
-  .num {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' on, 'lnum' on;
-  }
-
-  /* Print: keep the Post-Mortem readable on paper. Hide chrome (header,
-     footer, buttons), expand to full width, force light backgrounds. */
-  @media print {
-    @page { size: Letter; margin: 0.6in; }
-    body { background: #FFFFFF !important; }
-    .print\:hidden { display: none !important; }
-    .surface, .surface-deep { box-shadow: none !important; border: 1px solid #CBD5E1 !important; }
-    .surface-deep { background: #FFFFFF !important; color: #0F172A !important; }
-    .surface-deep .text-fg-onDeep, .surface-deep [class*="opacity-"] {
-      color: #0F172A !important; opacity: 1 !important;
-    }
-    main { max-width: none !important; padding: 0 !important; }
-    .recharts-wrapper { page-break-inside: avoid; }
-  }
-
-  /* Operations Briefing surfaces */
+/* Custom semantic component classes. MUST live in @layer components rather
+ * than @layer utilities, because Tailwind disallows @apply of utilities from
+ * inside the utilities layer (it triggers the "circular dependency" error). */
+@layer components {
   .surface {
     @apply bg-surface rounded-card shadow-card;
   }
@@ -88,4 +69,28 @@
   .pill {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
+}
+
+@layer utilities {
+  /* Tabular numerals for any column of numbers (inventory, cost, period) */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+  }
+}
+
+/* Print: keep the Post-Mortem readable on paper. Hide chrome, expand to full
+ * width, force light backgrounds. Lives outside @layer because @media print is
+ * a top-level at-rule and its descendant selectors don't @apply utilities. */
+@media print {
+  @page { size: Letter; margin: 0.6in; }
+  body { background: #FFFFFF !important; }
+  .print\:hidden { display: none !important; }
+  .surface, .surface-deep { box-shadow: none !important; border: 1px solid #CBD5E1 !important; }
+  .surface-deep { background: #FFFFFF !important; color: #0F172A !important; }
+  .surface-deep [class*="text-fg-onDeep"], .surface-deep [class*="opacity-"] {
+    color: #0F172A !important; opacity: 1 !important;
+  }
+  main { max-width: none !important; padding: 0 !important; }
+  .recharts-wrapper { page-break-inside: avoid; }
 }
