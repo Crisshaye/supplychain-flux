@@ -191,12 +191,14 @@ function NodeCell({ node, presence, isYou, tKey }: NodeCellProps) {
         )}
       </div>
 
-      {/* 4 flow info cards */}
-      <div className="mt-2 w-full grid grid-cols-2 gap-1">
-        {flowCards.map((card) => (
-          <FlowCard key={card.label} {...card} tKey={tKey} node={node} />
-        ))}
-      </div>
+      {/* 4 flow info rows — only visible to the player at this node */}
+      {isYou && (
+        <div className="mt-2 w-full border-t border-line">
+          {flowCards.map((card, i) => (
+            <FlowCard key={card.label} {...card} tKey={tKey} node={node} isLast={i === flowCards.length - 1} />
+          ))}
+        </div>
+      )}
 
       {/* Team presence footer */}
       <div className="mt-2 text-[9px] text-fg-muted leading-tight">
@@ -215,34 +217,37 @@ interface FlowCardProps {
   value: number | null;
   tKey: number;
   node: string;
+  isLast: boolean;
 }
 
-function FlowCard({ arrow, label, desc, value, tKey, node }: FlowCardProps) {
+function FlowCard({ arrow, label, desc, value, tKey, node, isLast }: FlowCardProps) {
   const isIn = arrow === 'in';
   return (
-    <div className={cn(
-      'rounded border border-line px-1.5 py-1 flex flex-col items-center text-center',
-      isIn ? 'bg-canvas/60' : 'bg-canvas/30',
-    )}>
-      <div className="flex items-center gap-0.5 text-[9px] font-medium text-fg-muted mb-0.5">
-        {isIn
-          ? <ArrowRight size={9} className="text-steel-400 shrink-0" />
-          : <ArrowLeft size={9} className="text-steel-400 shrink-0" />}
-        <span className="truncate">{label}</span>
+    <>
+      <div className="flex items-center justify-between gap-2 py-1.5 px-0.5 text-left">
+        <div className="flex items-center gap-1 min-w-0">
+          {isIn
+            ? <ArrowRight size={9} className="text-steel-400 shrink-0" />
+            : <ArrowLeft size={9} className="text-steel-400 shrink-0" />}
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium text-fg leading-none truncate">{label}</div>
+            <div className="text-[8px] text-fg-muted leading-tight mt-0.5 truncate">{desc}</div>
+          </div>
+        </div>
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            key={`${node}-${label}-${tKey}-${value}`}
+            initial={{ opacity: 0, y: -3 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="num font-semibold text-sm text-fg leading-none shrink-0"
+          >
+            {value ?? '—'}
+          </motion.div>
+        </AnimatePresence>
       </div>
-      <AnimatePresence mode="popLayout">
-        <motion.div
-          key={`${node}-${label}-${tKey}-${value}`}
-          initial={{ opacity: 0, y: -3 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="num font-semibold text-sm text-fg leading-none"
-        >
-          {value ?? '—'}
-        </motion.div>
-      </AnimatePresence>
-      <div className="text-[8px] text-fg-muted leading-tight mt-0.5 truncate w-full">{desc}</div>
-    </div>
+      {!isLast && <div className="border-t border-line" />}
+    </>
   );
 }
 
@@ -322,16 +327,7 @@ function Legend() {
         <span className="w-3 h-0.5 bg-line-strong inline-block" /> orders upstream
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <ArrowRight size={10} /> Arrived = received last period
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <ArrowLeft size={10} /> Shipped = fulfilled last period
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <ArrowRight size={10} /> In Transit = pipeline sum
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <ArrowLeft size={10} /> Ordered = last order placed
+        your node shows 4 flow rows: Arrived · Shipped · In Transit · Ordered
       </span>
     </div>
   );
