@@ -223,14 +223,6 @@ function Countdown({ deadlineAt }: { deadlineAt: number | null }) {
     </div>
   );
 }
-
-      <div className={cn('num font-display font-semibold text-2xl', tone === 'warn' ? 'text-amber' : 'text-fg')}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 // ---------- Decision (with Team Vote) ----------
 
 function DecisionPanel({
@@ -438,4 +430,3 @@ function ExtendModal({ code, currentT, onClose }: { code: string; currentT: numb
     </Modal>
   );
 }
-                                                     
