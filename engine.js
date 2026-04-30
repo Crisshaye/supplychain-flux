@@ -499,20 +499,13 @@ export function serializeForNode(state, node) {
         const ps = Object.values(nd.participants);
         const connected = ps.filter((p) => p.connected).length;
         const suggested = ps.filter((p) => Number.isInteger(nd.suggestions[p.email])).length;
-        const lastRecord = state.history.length > 0 ? state.history[state.history.length - 1] : null;
-        const lastNode = lastRecord?.perNode[n] ?? null;
+        // Intentionally omits internal state (onHand, backlog, pipeline totals).
+        // Each node should only know its own warehouse status, not its neighbours'.
         return [n, {
           occupiedCount: ps.length,
           connectedCount: connected,
           suggestedCount: suggested,
           robot: nd.robot,
-          onHand: nd.onHand,
-          backlog: nd.backlog,
-          // 4 flow cards (null before first period completes)
-          lastArrived: lastNode ? lastNode.incomingShipment : null,
-          lastShipped: lastNode ? lastNode.fulfilled : null,
-          inTransit: nd.shipmentPipeline.reduce((a, c) => a + c, 0),
-          lastOrdered: lastNode ? lastNode.executedDecision : null,
         }];
       }),
     ),

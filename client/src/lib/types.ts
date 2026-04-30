@@ -17,13 +17,8 @@ export interface NodePresence {
   connectedCount: number;
   suggestedCount: number;
   robot: boolean;
-  onHand: number;
-  backlog: number;
-  // 4 flow-card fields (null before first period completes)
-  lastArrived: number | null;   // → shipment received last period
-  lastShipped: number | null;   // ← units fulfilled/sent downstream last period
-  inTransit: number;            // → total units currently in shipment pipeline
-  lastOrdered: number | null;   // ← order placed last period (going upstream)
+  // Intentionally excludes onHand, backlog, and pipeline data.
+  // Each player can only see their own warehouse state (via YouView + history).
 }
 
 export interface TeamMember {

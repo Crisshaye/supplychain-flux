@@ -1,15 +1,19 @@
-// Supply chain pipeline diagram - the centerpiece of the simulation screen.
-// Five cells (Customer -> Retailer -> Wholesaler -> Distributor -> Factory),
-// with animated incoming-shipment and outgoing-order indicators between each
-// pair. Period transitions trigger slide-in animations so the bullwhip is
-// visible, not just numerical.
+// Supply chain pipeline diagram — the centerpiece of the simulation screen.
+//
+// Information hiding principle: each player can only see their own node's
+// internal state. All other nodes show only name and team status.
+//
+// Own-node layout (3 columns):
+//   LEFT  — downstream interface: Arrived (top) / Shipped (bottom)
+//   CENTER — warehouse: on-hand (large) + team status
+//   RIGHT — upstream interface: Ordered (top) / In Transit (bottom)
 
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, User, Box, AlertTriangle, ArrowLeft, ArrowRight, Factory as FactoryIcon } from 'lucide-react';
+import { Bot, User, AlertTriangle, ArrowLeft, ArrowRight, Factory as FactoryIcon, Lock } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { NODE_LABEL } from '@/lib/copy';
-import type { NodeView, NodeName, PeriodHistoryRow } from '@/lib/types';
+import type { NodeView, NodeName, YouView, PeriodHistoryRow } from '@/lib/types';
 
 interface Props {
   view: NodeView;
@@ -20,7 +24,6 @@ export function SupplyChainDiagram({ view }: Props) {
   const justAdvanced = view.t !== lastT.current;
   useEffect(() => { lastT.current = view.t; }, [view.t]);
 
-  // Most recent period record (for animations of last-period flows on this node).
   const last: PeriodHistoryRow | null = view.history.length > 0
     ? view.history[view.history.length - 1]
     : null;
@@ -31,7 +34,7 @@ export function SupplyChainDiagram({ view }: Props) {
         <div>
           <h2 className="font-display text-lg font-semibold">Supply chain pipeline</h2>
           <p className="text-sm text-fg-muted mt-0.5">
-            Orders flow upstream (right). Shipments flow downstream (left).
+            You can only see your own node's internal state.
           </p>
         </div>
         <div className="text-xs text-fg-muted">
@@ -40,39 +43,45 @@ export function SupplyChainDiagram({ view }: Props) {
         </div>
       </header>
 
-      {/* Customer + 4 nodes laid out horizontally on desktop, vertically on mobile */}
       <div className="grid grid-cols-1 lg:grid-cols-9 gap-3 items-stretch">
         <CustomerCell
           demand={last?.incomingOrder ?? null}
-          isYou={false}
           firePulse={justAdvanced && view.yourNode === 'retailer'}
         />
-        <ArrowGap last={last} myNode={view.yourNode} pos="customer-to-retailer" />
+        <ArrowGap pos="customer-to-retailer" />
         <NodeCell
           node="retailer"
           presence={view.presence.retailer}
           isYou={view.yourNode === 'retailer'}
+          you={view.yourNode === 'retailer' ? view.you : null}
+          last={view.yourNode === 'retailer' ? last : null}
           tKey={view.t}
         />
-        <ArrowGap last={null} myNode={view.yourNode} pos="retailer-to-wholesaler" />
+        <ArrowGap pos="retailer-to-wholesaler" />
         <NodeCell
           node="wholesaler"
           presence={view.presence.wholesaler}
           isYou={view.yourNode === 'wholesaler'}
+          you={view.yourNode === 'wholesaler' ? view.you : null}
+          last={view.yourNode === 'wholesaler' ? last : null}
           tKey={view.t}
         />
-        <ArrowGap last={null} myNode={view.yourNode} pos="wholesaler-to-distributor" />
+        <ArrowGap pos="wholesaler-to-distributor" />
         <NodeCell
           node="distributor"
           presence={view.presence.distributor}
           isYou={view.yourNode === 'distributor'}
+          you={view.yourNode === 'distributor' ? view.you : null}
+          last={view.yourNode === 'distributor' ? last : null}
           tKey={view.t}
         />
-        <ArrowGap last={null} myNode={view.yourNode} pos="distributor-to-factory" />
+        <ArrowGap pos="distributor-to-factory" />
         <NodeCell
           node="factory"
           presence={view.presence.factory}
           isYou={view.yourNode === 'factory'}
+          you={view.yourNode === 'factory' ? view.you : null}
+          last={view.yourNode === 'factory' ? last : null}
           tKey={view.t}
         />
       </div>
@@ -82,13 +91,13 @@ export function SupplyChainDiagram({ view }: Props) {
   );
 }
 
-// ---------- Cells ----------
+// ---------- Customer cell ----------
 
-function CustomerCell({ demand, firePulse }: { demand: number | null; isYou: boolean; firePulse: boolean }) {
+function CustomerCell({ demand, firePulse }: { demand: number | null; firePulse: boolean }) {
   return (
-    <div className="surface-inset p-3 lg:p-4 flex flex-col items-center text-center min-h-[120px] justify-between">
+    <div className="surface-inset p-3 lg:p-4 flex flex-col items-center text-center justify-between min-h-[140px]">
       <div className="text-[10px] uppercase tracking-wider text-fg-muted">Customer</div>
-      <div className="my-2 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center">
         <AnimatePresence mode="popLayout">
           <motion.div
             key={demand ?? 'idle'}
@@ -107,172 +116,199 @@ function CustomerCell({ demand, firePulse }: { demand: number | null; isYou: boo
   );
 }
 
+// ---------- Node cell ----------
+
 interface NodeCellProps {
   node: NodeName;
   presence: NodeView['presence'][NodeName];
   isYou: boolean;
+  you: YouView | null;           // non-null only when isYou
+  last: PeriodHistoryRow | null; // non-null only when isYou and history exists
   tKey: number;
 }
 
-function NodeCell({ node, presence, isYou, tKey }: NodeCellProps) {
+function NodeCell({ node, presence, isYou, you, last, tKey }: NodeCellProps) {
   const isFactory = node === 'factory';
-  const onHand = presence.onHand;
-  const backlog = presence.backlog;
 
-  // 4 flow card values sourced from presence (available for all nodes)
-  const flowCards: { arrow: 'in' | 'out'; label: string; desc: string; value: number | null }[] = [
-    {
-      arrow: 'in',
-      label: 'Arrived',
-      desc: 'received this turn',
-      value: presence.lastArrived,
-    },
-    {
-      arrow: 'out',
-      label: 'Shipped',
-      desc: isFactory ? 'produced & sent' : 'fulfilled & sent',
-      value: presence.lastShipped,
-    },
-    {
-      arrow: 'in',
-      label: 'In Transit',
-      desc: 'on its way here',
-      value: presence.inTransit,
-    },
-    {
-      arrow: 'out',
-      label: 'Ordered',
-      desc: isFactory ? 'production started' : 'sent upstream',
-      value: presence.lastOrdered,
-    },
-  ];
+  if (!isYou) {
+    // Other nodes: opaque — show only role name and team status.
+    return (
+      <div className="surface-inset p-3 lg:p-4 flex flex-col items-center justify-center text-center gap-2 min-h-[140px]">
+        <div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-fg-muted">
+          {isFactory && <FactoryIcon size={11} className="opacity-70" />}
+          {NODE_LABEL[node]}
+          {presence.robot && <Bot size={11} className="text-steel-400" aria-label="Robot" />}
+          {!presence.robot && presence.occupiedCount > 0 && (
+            <User size={11} className="text-steel-400" aria-label="Human team" />
+          )}
+        </div>
+        <Lock size={14} className="text-fg-muted opacity-40" aria-label="Information hidden" />
+        <div className="text-[9px] text-fg-muted leading-tight">
+          {presence.occupiedCount > 0
+            ? `${presence.connectedCount}/${presence.occupiedCount} online`
+            : presence.robot ? 'Robot' : 'Empty'}
+        </div>
+      </div>
+    );
+  }
+
+  // Own node: 3-column layout.
+  // Data sources:
+  //   Arrived     = last?.incomingOrder  (demand received from downstream)
+  //   Shipped     = last?.fulfilled      (sent downstream to fulfill demand)
+  //   Ordered     = last?.executedDecision (order placed upstream)
+  //   In Transit  = you.onShipmentPipeline (pipeline sum coming from upstream)
+  const arrived   = last?.incomingOrder ?? null;
+  const shipped   = last?.fulfilled ?? null;
+  const ordered   = last?.executedDecision ?? null;
+  const inTransit = you!.onShipmentPipeline;
+  const onHand    = you!.onHand;
+  const backlog   = you!.backlog;
 
   return (
-    <div
-      className={cn(
-        'surface-inset p-3 lg:p-4 flex flex-col items-center text-center transition-all',
-        isYou && 'ring-2 ring-navy bg-canvas',
-      )}
-    >
-      {/* Node label row */}
+    <div className="surface-inset ring-2 ring-navy bg-canvas p-3 lg:p-4 min-h-[140px]">
+      {/* Node label */}
       <div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-fg-muted mb-2">
         {isFactory && <FactoryIcon size={11} className="opacity-70" />}
         {NODE_LABEL[node]}
-        {presence.robot && <Bot size={11} className="text-steel-400" aria-label="Robot operator" />}
+        {presence.robot && <Bot size={11} className="text-steel-400" aria-label="Robot" />}
         {!presence.robot && presence.occupiedCount > 0 && (
           <User size={11} className="text-steel-400" aria-label="Human team" />
         )}
       </div>
 
-      {/* On-hand inventory (big) */}
-      <div className="flex flex-col items-center mb-1">
-        <AnimatePresence mode="popLayout">
-          <motion.div
-            key={`${node}-${tKey}-${onHand}`}
-            initial={isYou ? { y: -4, opacity: 0 } : { opacity: 0.3 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.25 }}
-            className="num font-display font-semibold text-2xl lg:text-3xl text-fg"
-          >
-            {onHand}
-          </motion.div>
-        </AnimatePresence>
-        <div className="text-[10px] text-fg-muted -mt-0.5">on-hand</div>
+      {/* 3-column body */}
+      <div className="grid grid-cols-3 gap-2 items-center">
 
-        {backlog > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-amber"
-          >
-            <AlertTriangle size={10} />
-            <span className="num">backlog {backlog}</span>
-          </motion.div>
-        )}
-      </div>
-
-      {/* 4 flow info rows — only visible to the player at this node */}
-      {isYou && (
-        <div className="mt-2 w-full border-t border-line">
-          {flowCards.map((card, i) => (
-            <FlowCard key={card.label} {...card} tKey={tKey} node={node} isLast={i === flowCards.length - 1} />
-          ))}
+        {/* LEFT — downstream interface */}
+        <div className="flex flex-col gap-2">
+          <FlowStat
+            arrow="right"
+            label="Arrived"
+            sublabel={isFactory ? 'orders in' : 'demand in'}
+            value={arrived}
+            tKey={tKey}
+            animKey={`${node}-arrived-${tKey}`}
+          />
+          <div className="border-t border-line" />
+          <FlowStat
+            arrow="left"
+            label="Shipped"
+            sublabel="sent downstream"
+            value={shipped}
+            tKey={tKey}
+            animKey={`${node}-shipped-${tKey}`}
+          />
         </div>
-      )}
 
-      {/* Team presence footer */}
-      <div className="mt-2 text-[9px] text-fg-muted leading-tight">
-        {presence.occupiedCount > 0
-          ? `${presence.connectedCount}/${presence.occupiedCount} online`
-          : presence.robot ? 'Robot' : 'Empty'}
+        {/* CENTER — warehouse */}
+        <div className="flex flex-col items-center text-center px-1">
+          <AnimatePresence mode="popLayout">
+            <motion.div
+              key={`${node}-onhand-${tKey}-${onHand}`}
+              initial={{ y: -4, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.25 }}
+              className="num font-display font-semibold text-2xl lg:text-3xl text-fg leading-none"
+            >
+              {onHand}
+            </motion.div>
+          </AnimatePresence>
+          <div className="text-[10px] text-fg-muted mt-0.5">on-hand</div>
+
+          {backlog > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-amber"
+            >
+              <AlertTriangle size={10} />
+              <span className="num">{backlog}</span>
+            </motion.div>
+          )}
+
+          <div className="mt-2 text-[9px] text-fg-muted leading-tight">
+            {presence.occupiedCount > 0
+              ? `${presence.connectedCount}/${presence.occupiedCount} online`
+              : presence.robot ? 'Robot' : 'Empty'}
+          </div>
+        </div>
+
+        {/* RIGHT — upstream interface */}
+        <div className="flex flex-col gap-2">
+          <FlowStat
+            arrow="right"
+            label="Ordered"
+            sublabel={isFactory ? 'production' : 'sent upstream'}
+            value={ordered}
+            tKey={tKey}
+            animKey={`${node}-ordered-${tKey}`}
+          />
+          <div className="border-t border-line" />
+          <FlowStat
+            arrow="left"
+            label="In Transit"
+            sublabel="on its way here"
+            value={inTransit}
+            tKey={tKey}
+            animKey={`${node}-transit-${tKey}`}
+          />
+        </div>
+
       </div>
     </div>
   );
 }
 
-interface FlowCardProps {
-  arrow: 'in' | 'out';
+// ---------- Flow stat (used inside own node card) ----------
+
+interface FlowStatProps {
+  arrow: 'left' | 'right';
   label: string;
-  desc: string;
+  sublabel: string;
   value: number | null;
   tKey: number;
-  node: string;
-  isLast: boolean;
+  animKey: string;
 }
 
-function FlowCard({ arrow, label, desc, value, tKey, node, isLast }: FlowCardProps) {
-  const isIn = arrow === 'in';
+function FlowStat({ arrow, label, sublabel, value, animKey }: FlowStatProps) {
   return (
-    <>
-      <div className="flex items-center justify-between gap-2 py-1.5 px-0.5 text-left">
-        <div className="flex items-center gap-1 min-w-0">
-          {isIn
-            ? <ArrowRight size={9} className="text-steel-400 shrink-0" />
-            : <ArrowLeft size={9} className="text-steel-400 shrink-0" />}
-          <div className="min-w-0">
-            <div className="text-[10px] font-medium text-fg leading-none truncate">{label}</div>
-            <div className="text-[8px] text-fg-muted leading-tight mt-0.5 truncate">{desc}</div>
-          </div>
-        </div>
-        <AnimatePresence mode="popLayout">
-          <motion.div
-            key={`${node}-${label}-${tKey}-${value}`}
-            initial={{ opacity: 0, y: -3 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className="num font-semibold text-sm text-fg leading-none shrink-0"
-          >
-            {value ?? '—'}
-          </motion.div>
-        </AnimatePresence>
+    <div className="flex flex-col items-center text-center gap-0.5">
+      <div className="flex items-center gap-0.5 text-[9px] text-fg-muted">
+        {arrow === 'right'
+          ? <ArrowRight size={9} className="text-steel-400 shrink-0" />
+          : <ArrowLeft size={9} className="text-steel-400 shrink-0" />}
+        <span className="font-medium text-fg">{label}</span>
       </div>
-      {!isLast && <div className="border-t border-line" />}
-    </>
+      <AnimatePresence mode="popLayout">
+        <motion.div
+          key={animKey}
+          initial={{ opacity: 0, y: -3 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="num font-semibold text-base text-fg leading-none"
+        >
+          {value ?? '—'}
+        </motion.div>
+      </AnimatePresence>
+      <div className="text-[8px] text-fg-muted leading-tight">{sublabel}</div>
+    </div>
   );
 }
 
 // ---------- Animated arrow gap between cells ----------
 
-interface ArrowGapProps {
-  last: PeriodHistoryRow | null;
-  myNode: NodeName;
-  pos: string;
-}
-
-function ArrowGap({ pos }: ArrowGapProps) {
-  // Each gap shows two stacked lanes:
-  //   Top: shipments flowing right-to-left (downstream)
-  //   Bottom: orders flowing left-to-right (upstream)
-  // The dot animation runs continuously while the simulation is active so the
-  // viewer always sees the directional flow even if no values just changed.
+function ArrowGap({ pos }: { pos: string }) {
   return (
-    <div className="hidden lg:flex flex-col justify-center items-center min-h-[120px]" aria-hidden>
+    <div className="hidden lg:flex flex-col justify-center items-center min-h-[140px]" aria-hidden>
       <div className="w-full relative h-5 mb-1">
         <ArrowLeft size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-steel-400" />
         <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-0.5 bg-line-strong" />
         <FlowDot direction="left" delay={0} />
       </div>
-      <div className="text-[9px] uppercase tracking-wider text-fg-muted py-0.5">{pos.includes('customer') ? 'demand' : 'flow'}</div>
+      <div className="text-[9px] uppercase tracking-wider text-fg-muted py-0.5">
+        {pos.includes('customer') ? 'demand' : 'flow'}
+      </div>
       <div className="w-full relative h-5 mt-1">
         <ArrowRight size={14} className="absolute left-0 top-1/2 -translate-y-1/2 text-steel-400" />
         <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-0.5 bg-line-strong" />
@@ -291,12 +327,7 @@ function FlowDot({ direction, delay }: { direction: 'left' | 'right'; delay: num
       style={{ left: 0 }}
       initial={{ left: fromX, opacity: 0 }}
       animate={{ left: toX, opacity: [0, 1, 1, 0] }}
-      transition={{
-        duration: 2.4,
-        repeat: Infinity,
-        ease: 'linear',
-        delay,
-      }}
+      transition={{ duration: 2.4, repeat: Infinity, ease: 'linear', delay }}
     />
   );
 }
@@ -307,27 +338,22 @@ function Legend() {
   return (
     <div className="mt-5 pt-4 border-t border-line flex flex-wrap items-center gap-4 text-[11px] text-fg-muted">
       <span className="inline-flex items-center gap-1.5">
-        <Box size={12} /> on-hand inventory
-      </span>
-      <span className="inline-flex items-center gap-1.5 text-amber">
-        <AlertTriangle size={12} /> backlog (unfilled demand)
+        <ArrowRight size={10} /> Arrived — demand received from downstream
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <User size={12} /> human team
+        <ArrowLeft size={10} /> Shipped — inventory sent downstream
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <Bot size={12} /> robot (naive pass-through)
+        <ArrowRight size={10} /> Ordered — order sent upstream
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <span className="w-3 h-0.5 bg-line-strong inline-block" />
-        <ArrowLeft size={10} /> shipments downstream
+        <ArrowLeft size={10} /> In Transit — stock on its way to you
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <ArrowRight size={10} />
-        <span className="w-3 h-0.5 bg-line-strong inline-block" /> orders upstream
+        <AlertTriangle size={12} className="text-amber" /> backlog
       </span>
       <span className="inline-flex items-center gap-1.5">
-        your node shows 4 flow rows: Arrived · Shipped · In Transit · Ordered
+        <Lock size={11} /> other nodes hidden
       </span>
     </div>
   );
