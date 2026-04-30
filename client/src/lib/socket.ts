@@ -41,6 +41,12 @@ export function convene(input: {
   demandProfile: DemandProfile;
   demandVector?: number[];
   decisionWindowSec: number;
+  L_o?: number;
+  L_s?: number;
+  L_p?: number;
+  h?: number;
+  b?: number;
+  I_0?: number;
 }): Promise<ConveneResult> {
   return emitAck('convene', input);
 }

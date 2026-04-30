@@ -64,7 +64,8 @@ io.on('connection', (socket) => {
   socket.data.attachment = null;
 
   socket.on('convene', (payload, ack) => safeAck(ack, () => {
-    const { hostEmail, hostName, T, demandProfile, demandVector, decisionWindowSec } = payload || {};
+    const { hostEmail, hostName, T, demandProfile, demandVector, decisionWindowSec,
+            L_o, L_s, L_p, h, b, I_0 } = payload || {};
     const code = uniqueCode();
     const state = createSession({
       code,
@@ -75,6 +76,12 @@ io.on('connection', (socket) => {
         demandProfile: demandProfile || 'mit_step',
         demandVector: demandVector || null,
         decisionWindowSec: clampWindow(decisionWindowSec),
+        ...(L_o != null && { L_o: clampInt(L_o, 1, 8) }),
+        ...(L_s != null && { L_s: clampInt(L_s, 1, 8) }),
+        ...(L_p != null && { L_p: clampInt(L_p, 1, 8) }),
+        ...(h != null && { h: clampFloat(h, 0, 100) }),
+        ...(b != null && { b: clampFloat(b, 0, 100) }),
+        ...(I_0 != null && { I_0: clampInt(I_0, 0, 200) }),
       },
     });
     sessions.set(code, state);
@@ -250,6 +257,22 @@ function clampWindow(secs) {
   const n = Math.floor(Number(secs) || 300);
   if (n < 60) return 60;
   if (n > 1800) return 1800;
+  return n;
+}
+
+function clampInt(val, min, max) {
+  const n = Math.floor(Number(val));
+  if (isNaN(n)) return min;
+  if (n < min) return min;
+  if (n > max) return max;
+  return n;
+}
+
+function clampFloat(val, min, max) {
+  const n = Number(val);
+  if (isNaN(n)) return min;
+  if (n < min) return min;
+  if (n > max) return max;
   return n;
 }
 

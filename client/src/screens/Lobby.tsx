@@ -85,6 +85,14 @@ function ConveneCard({ onBack, dispatch }: { onBack: () => void; dispatch: (a: A
   const [windowMin, setWindowMin] = useState(5);
   const [demandProfile, setDemandProfile] = useState<DemandProfile>('mit_step');
   const [hostNode, setHostNode] = useState<NodeName>('retailer');
+  // Lead times
+  const [Lo, setLo] = useState(1);
+  const [Ls, setLs] = useState(2);
+  const [Lp, setLp] = useState(2);
+  // Cost parameters
+  const [hCost, setHCost] = useState(1.0);
+  const [bCost, setBCost] = useState(2.0);
+  const [I0, setI0] = useState(12);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,6 +106,12 @@ function ConveneCard({ onBack, dispatch }: { onBack: () => void; dispatch: (a: A
         T,
         demandProfile,
         decisionWindowSec: Math.max(60, Math.min(1800, Math.round(windowMin * 60))),
+        L_o: Lo,
+        L_s: Ls,
+        L_p: Lp,
+        h: hCost,
+        b: bCost,
+        I_0: I0,
       });
       const view = await api.joinSession({
         code: res.code,
@@ -117,6 +131,12 @@ function ConveneCard({ onBack, dispatch }: { onBack: () => void; dispatch: (a: A
   const tValid = T >= 8 && T <= 200;
   const windowValid = windowMin >= 1 && windowMin <= 30;
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hostEmail);
+  const loValid = Number.isInteger(Lo) && Lo >= 1 && Lo <= 8;
+  const lsValid = Number.isInteger(Ls) && Ls >= 1 && Ls <= 8;
+  const lpValid = Number.isInteger(Lp) && Lp >= 1 && Lp <= 8;
+  const hValid = hCost >= 0 && hCost <= 100;
+  const bValid = bCost >= 0 && bCost <= 100;
+  const i0Valid = Number.isInteger(I0) && I0 >= 0 && I0 <= 200;
 
   return (
     <Card
@@ -199,11 +219,106 @@ function ConveneCard({ onBack, dispatch }: { onBack: () => void; dispatch: (a: A
         </Field>
       </div>
 
+      {/* Lead times + cost parameters */}
+      <div className="mt-5 border-t border-line pt-5">
+        <p className="text-xs font-medium text-fg-muted uppercase tracking-wider mb-4">Lead times &amp; cost parameters</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <Field
+            label="Order lead time L_o (periods)"
+            hint="Periods for an order to reach the upstream node. Default: 1."
+            error={!loValid ? 'Integer 1–8' : undefined}
+          >
+            <Input
+              type="number"
+              min={1}
+              max={8}
+              value={Lo}
+              onChange={(e) => setLo(Math.floor(Number(e.target.value) || 1))}
+            />
+          </Field>
+
+          <Field
+            label="Shipment lead time L_s (periods)"
+            hint="Periods for goods to travel downstream. Default: 2."
+            error={!lsValid ? 'Integer 1–8' : undefined}
+          >
+            <Input
+              type="number"
+              min={1}
+              max={8}
+              value={Ls}
+              onChange={(e) => setLs(Math.floor(Number(e.target.value) || 2))}
+            />
+          </Field>
+
+          <Field
+            label="Production lead time L_p (periods)"
+            hint="Factory-only: periods to produce goods. Default: 2."
+            error={!lpValid ? 'Integer 1–8' : undefined}
+          >
+            <Input
+              type="number"
+              min={1}
+              max={8}
+              value={Lp}
+              onChange={(e) => setLp(Math.floor(Number(e.target.value) || 2))}
+            />
+          </Field>
+
+          <Field
+            label="Holding cost h ($/unit/period)"
+            hint="Cost per unit held in inventory each period. Default: $1.00."
+            error={!hValid ? 'Must be 0–100' : undefined}
+          >
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step={0.1}
+              value={hCost}
+              onChange={(e) => setHCost(Number(e.target.value) || 0)}
+            />
+          </Field>
+
+          <Field
+            label="Backlog cost b ($/unit/period)"
+            hint="Penalty per unfilled unit of demand each period. Default: $2.00."
+            error={!bValid ? 'Must be 0–100' : undefined}
+          >
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step={0.1}
+              value={bCost}
+              onChange={(e) => setBCost(Number(e.target.value) || 0)}
+            />
+          </Field>
+
+          <Field
+            label="Starting inventory I_0 (units)"
+            hint="Initial on-hand inventory at each node. Default: 12."
+            error={!i0Valid ? 'Integer 0–200' : undefined}
+          >
+            <Input
+              type="number"
+              min={0}
+              max={200}
+              value={I0}
+              onChange={(e) => setI0(Math.floor(Number(e.target.value) || 0))}
+            />
+          </Field>
+        </div>
+      </div>
+
       {error && <div className="mt-4 text-sm text-danger">{error}</div>}
 
       <div className="mt-6 flex justify-end gap-3">
         <Button variant="ghost" onClick={onBack}>Cancel</Button>
-        <Button disabled={!tValid || !windowValid || !emailValid || submitting} onClick={submit}>
+        <Button
+          disabled={!tValid || !windowValid || !emailValid || !loValid || !lsValid || !lpValid || !hValid || !bValid || !i0Valid || submitting}
+          onClick={submit}
+        >
           {submitting ? 'Convening...' : 'Convene'} <ChevronRight size={14} />
         </Button>
       </div>

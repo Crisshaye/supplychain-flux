@@ -110,6 +110,11 @@ export function createSession({ code, hostEmail, hostName, config = {} } = {}) {
   if (cfg.decisionWindowSec < 60 || cfg.decisionWindowSec > 1800) {
     throw new Error(`decisionWindowSec must be in [60, 1800], got ${cfg.decisionWindowSec}`);
   }
+  if (!Number.isInteger(cfg.L_o) || cfg.L_o < 1 || cfg.L_o > 8) throw new Error(`L_o must be an integer in [1, 8], got ${cfg.L_o}`);
+  if (!Number.isInteger(cfg.L_s) || cfg.L_s < 1 || cfg.L_s > 8) throw new Error(`L_s must be an integer in [1, 8], got ${cfg.L_s}`);
+  if (!Number.isInteger(cfg.L_p) || cfg.L_p < 1 || cfg.L_p > 8) throw new Error(`L_p must be an integer in [1, 8], got ${cfg.L_p}`);
+  if (cfg.h < 0 || cfg.h > 100) throw new Error(`h must be in [0, 100], got ${cfg.h}`);
+  if (cfg.b < 0 || cfg.b > 100) throw new Error(`b must be in [0, 100], got ${cfg.b}`);
   cfg.demandVector = buildDemandVector(
     cfg.demandProfile,
     cfg.T,
@@ -118,7 +123,7 @@ export function createSession({ code, hostEmail, hostName, config = {} } = {}) {
   );
 
   const nodes = {};
-  for (const n of NODES) nodes[n] = makeNodeState(cfg);
+  for (const n of NODES) nodes[n] = makeNodeState(cfg, n === 'factory');
 
   return {
     code,
@@ -137,13 +142,14 @@ export function createSession({ code, hostEmail, hostName, config = {} } = {}) {
   };
 }
 
-function makeNodeState(cfg) {
+function makeNodeState(cfg, isFactory = false) {
+  const shipLead = isFactory ? cfg.L_p : cfg.L_s;
   return {
     participants: {},
     onHand: cfg.I_0,
     backlog: 0,
-    orderPipeline: [cfg.Pipe_0],
-    shipmentPipeline: [cfg.Pipe_0, cfg.Pipe_0],
+    orderPipeline: Array(cfg.L_o).fill(cfg.Pipe_0),
+    shipmentPipeline: Array(shipLead).fill(cfg.Pipe_0),
     suggestions: {},
     lastExecutedDecision: null,
     autoDecidedPeriods: [],
@@ -493,6 +499,8 @@ export function serializeForNode(state, node) {
         const ps = Object.values(nd.participants);
         const connected = ps.filter((p) => p.connected).length;
         const suggested = ps.filter((p) => Number.isInteger(nd.suggestions[p.email])).length;
+        const lastRecord = state.history.length > 0 ? state.history[state.history.length - 1] : null;
+        const lastNode = lastRecord?.perNode[n] ?? null;
         return [n, {
           occupiedCount: ps.length,
           connectedCount: connected,
@@ -500,6 +508,11 @@ export function serializeForNode(state, node) {
           robot: nd.robot,
           onHand: nd.onHand,
           backlog: nd.backlog,
+          // 4 flow cards (null before first period completes)
+          lastArrived: lastNode ? lastNode.incomingShipment : null,
+          lastShipped: lastNode ? lastNode.fulfilled : null,
+          inTransit: nd.shipmentPipeline.reduce((a, c) => a + c, 0),
+          lastOrdered: lastNode ? lastNode.executedDecision : null,
         }];
       }),
     ),

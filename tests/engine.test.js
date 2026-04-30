@@ -382,8 +382,3 @@ test('robot defers to humans when at least one human suggests', () => {
   assert.equal(r0.executedDecision, 9);
   assert.ok(!('__robot__@scf' in r0.suggestions));
 });
-(s);
-  const r0 = s.history[0].perNode.retailer;
-  assert.equal(r0.executedDecision, 9);
-  assert.ok(!('__robot__@scf' in r0.suggestions));
-});

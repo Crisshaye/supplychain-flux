@@ -52,7 +52,6 @@ export function SupplyChainDiagram({ view }: Props) {
           node="retailer"
           presence={view.presence.retailer}
           isYou={view.yourNode === 'retailer'}
-          ownLast={view.yourNode === 'retailer' ? last : null}
           tKey={view.t}
         />
         <ArrowGap last={null} myNode={view.yourNode} pos="retailer-to-wholesaler" />
@@ -60,7 +59,6 @@ export function SupplyChainDiagram({ view }: Props) {
           node="wholesaler"
           presence={view.presence.wholesaler}
           isYou={view.yourNode === 'wholesaler'}
-          ownLast={view.yourNode === 'wholesaler' ? last : null}
           tKey={view.t}
         />
         <ArrowGap last={null} myNode={view.yourNode} pos="wholesaler-to-distributor" />
@@ -68,7 +66,6 @@ export function SupplyChainDiagram({ view }: Props) {
           node="distributor"
           presence={view.presence.distributor}
           isYou={view.yourNode === 'distributor'}
-          ownLast={view.yourNode === 'distributor' ? last : null}
           tKey={view.t}
         />
         <ArrowGap last={null} myNode={view.yourNode} pos="distributor-to-factory" />
@@ -76,7 +73,6 @@ export function SupplyChainDiagram({ view }: Props) {
           node="factory"
           presence={view.presence.factory}
           isYou={view.yourNode === 'factory'}
-          ownLast={view.yourNode === 'factory' ? last : null}
           tKey={view.t}
         />
       </div>
@@ -115,22 +111,51 @@ interface NodeCellProps {
   node: NodeName;
   presence: NodeView['presence'][NodeName];
   isYou: boolean;
-  ownLast: PeriodHistoryRow | null;
   tKey: number;
 }
 
-function NodeCell({ node, presence, isYou, ownLast, tKey }: NodeCellProps) {
+function NodeCell({ node, presence, isYou, tKey }: NodeCellProps) {
   const isFactory = node === 'factory';
   const onHand = presence.onHand;
   const backlog = presence.backlog;
+
+  // 4 flow card values sourced from presence (available for all nodes)
+  const flowCards: { arrow: 'in' | 'out'; label: string; desc: string; value: number | null }[] = [
+    {
+      arrow: 'in',
+      label: 'Arrived',
+      desc: 'received this turn',
+      value: presence.lastArrived,
+    },
+    {
+      arrow: 'out',
+      label: 'Shipped',
+      desc: isFactory ? 'produced & sent' : 'fulfilled & sent',
+      value: presence.lastShipped,
+    },
+    {
+      arrow: 'in',
+      label: 'In Transit',
+      desc: 'on its way here',
+      value: presence.inTransit,
+    },
+    {
+      arrow: 'out',
+      label: 'Ordered',
+      desc: isFactory ? 'production started' : 'sent upstream',
+      value: presence.lastOrdered,
+    },
+  ];
+
   return (
     <div
       className={cn(
-        'surface-inset p-3 lg:p-4 flex flex-col items-center text-center min-h-[120px] justify-between transition-all',
+        'surface-inset p-3 lg:p-4 flex flex-col items-center text-center transition-all',
         isYou && 'ring-2 ring-navy bg-canvas',
       )}
     >
-      <div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-fg-muted">
+      {/* Node label row */}
+      <div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-fg-muted mb-2">
         {isFactory && <FactoryIcon size={11} className="opacity-70" />}
         {NODE_LABEL[node]}
         {presence.robot && <Bot size={11} className="text-steel-400" aria-label="Robot operator" />}
@@ -139,7 +164,8 @@ function NodeCell({ node, presence, isYou, ownLast, tKey }: NodeCellProps) {
         )}
       </div>
 
-      <div className="my-2 flex flex-col items-center">
+      {/* On-hand inventory (big) */}
+      <div className="flex flex-col items-center mb-1">
         <AnimatePresence mode="popLayout">
           <motion.div
             key={`${node}-${tKey}-${onHand}`}
@@ -165,20 +191,57 @@ function NodeCell({ node, presence, isYou, ownLast, tKey }: NodeCellProps) {
         )}
       </div>
 
-      <div className="text-[9px] text-fg-muted leading-tight">
+      {/* 4 flow info cards */}
+      <div className="mt-2 w-full grid grid-cols-2 gap-1">
+        {flowCards.map((card) => (
+          <FlowCard key={card.label} {...card} tKey={tKey} node={node} />
+        ))}
+      </div>
+
+      {/* Team presence footer */}
+      <div className="mt-2 text-[9px] text-fg-muted leading-tight">
         {presence.occupiedCount > 0
           ? `${presence.connectedCount}/${presence.occupiedCount} online`
           : presence.robot ? 'Robot' : 'Empty'}
       </div>
+    </div>
+  );
+}
 
-      {/* Per-node "what just happened" footer for the user's own node */}
-      {isYou && ownLast && (
-        <div className="mt-2 w-full border-t border-line pt-2 text-[10px] num text-fg-muted flex justify-around">
-          <span>in {ownLast.incomingShipment}</span>
-          <span>out {ownLast.fulfilled}</span>
-          <span>ord {ownLast.executedDecision ?? '-'}</span>
-        </div>
-      )}
+interface FlowCardProps {
+  arrow: 'in' | 'out';
+  label: string;
+  desc: string;
+  value: number | null;
+  tKey: number;
+  node: string;
+}
+
+function FlowCard({ arrow, label, desc, value, tKey, node }: FlowCardProps) {
+  const isIn = arrow === 'in';
+  return (
+    <div className={cn(
+      'rounded border border-line px-1.5 py-1 flex flex-col items-center text-center',
+      isIn ? 'bg-canvas/60' : 'bg-canvas/30',
+    )}>
+      <div className="flex items-center gap-0.5 text-[9px] font-medium text-fg-muted mb-0.5">
+        {isIn
+          ? <ArrowRight size={9} className="text-steel-400 shrink-0" />
+          : <ArrowLeft size={9} className="text-steel-400 shrink-0" />}
+        <span className="truncate">{label}</span>
+      </div>
+      <AnimatePresence mode="popLayout">
+        <motion.div
+          key={`${node}-${label}-${tKey}-${value}`}
+          initial={{ opacity: 0, y: -3 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="num font-semibold text-sm text-fg leading-none"
+        >
+          {value ?? '—'}
+        </motion.div>
+      </AnimatePresence>
+      <div className="text-[8px] text-fg-muted leading-tight mt-0.5 truncate w-full">{desc}</div>
     </div>
   );
 }
@@ -257,6 +320,18 @@ function Legend() {
       <span className="inline-flex items-center gap-1.5">
         <ArrowRight size={10} />
         <span className="w-3 h-0.5 bg-line-strong inline-block" /> orders upstream
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <ArrowRight size={10} /> Arrived = received last period
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <ArrowLeft size={10} /> Shipped = fulfilled last period
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <ArrowRight size={10} /> In Transit = pipeline sum
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <ArrowLeft size={10} /> Ordered = last order placed
       </span>
     </div>
   );
